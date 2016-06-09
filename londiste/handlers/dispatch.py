@@ -618,11 +618,15 @@ ROW_HANDLERS = {'plain': RowHandler,
 #------------------------------------------------------------------------------
 
 class Dispatcher(ShardHandler):
-    """Partitioned loader.
+    _doc_ = """Partitioned loader.
     Splits events into partitions, if requested.
     Then applies them without further processing.
     """
     handler_name = 'dispatch'
+
+    @property
+    def __doc__(self):
+        return self._doc_
 
     def __init__(self, table_name, args, dest_table):
 
@@ -975,7 +979,7 @@ def _install_handler_docstrings(dst_cls):
         if line.startswith("== HANDLER ARGUMENTS =="):
             found = True
         if found:
-            dst_cls.__doc__ += "\n" + line
+            dst_cls._doc_ += "\n" + line
 
 _install_handler_docstrings(Dispatcher)
 
@@ -1022,10 +1026,10 @@ BASE = {
 
 def set_handler_doc(cls, handler_defs):
     """ generate handler docstring """
-    cls.__doc__ = "Custom dispatch handler with default args.\n\n" \
+    cls._doc_ = "Custom dispatch handler with default args.\n\n" \
                   "Parameters:\n"
     for k, v in handler_defs.items():
-        cls.__doc__ += "  %s = %s\n" % (k, v)
+        cls._doc_ += "  %s = %s\n" % (k, v)
 
 
 def _generate_handlers():
