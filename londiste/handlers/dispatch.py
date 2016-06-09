@@ -283,7 +283,7 @@ class BaseBulkCollectingLoader(BaseLoader):
         """Collects list of rows into operation hashed dict
         """
         op_map = {'I': [], 'U': [], 'D': []}
-        for op, row in self.pkey_ev_map.itervalues():
+        for op, row in self.pkey_ev_map.values():
             # ignore None op events
             if op in op_map:
                 op_map[op].append(row)
@@ -693,7 +693,7 @@ class Dispatcher(ShardHandler):
         if event_types == '*':
             event_types = EVENT_TYPES
         else:
-            event_types = [evt.upper() for evt in event_types.split(',')]
+            event_types = [evt.upper() for evt in event_types.split(',')]  # noqa
             for evt in event_types:
                 if evt not in EVENT_TYPES:
                     raise Exception('Unsupported operation: %s' % evt)
@@ -1027,7 +1027,7 @@ BASE = {
 def set_handler_doc(cls, handler_defs):
     """ generate handler docstring """
     cls._doc_ = "Custom dispatch handler with default args.\n\n" \
-                  "Parameters:\n"
+                "Parameters:\n"
     for k, v in handler_defs.items():
         cls._doc_ += "  %s = %s\n" % (k, v)
 

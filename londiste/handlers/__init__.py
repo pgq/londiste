@@ -4,6 +4,7 @@
 from __future__ import division, absolute_import, print_function
 
 import sys
+import functools
 
 DEFAULT_HANDLERS = [
     'londiste.handlers.qtable',
@@ -39,5 +40,5 @@ def handler_args(name, cls):
 def update(*p):
     """ Update dicts given in params with its predecessor param dict
     in reverse order """
-    return reduce(lambda x, y: x.update(y) or x,
-                  (p[i] for i in range(len(p) - 1, -1, -1)), {})
+    return functools.reduce(lambda x, y: x.update(y) or x,
+                            (p[i] for i in range(len(p) - 1, -1, -1)), {})

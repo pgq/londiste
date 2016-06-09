@@ -138,7 +138,7 @@ class BulkLoader(BaseHandler):
         del_list = []
         ins_list = []
         upd_list = []
-        for ev_list in self.pkey_ev_map.itervalues():
+        for ev_list in self.pkey_ev_map.values():
             # rewrite list of I/U/D events to
             # optional DELETE and optional INSERT/COPY command
             exists_before = -1
