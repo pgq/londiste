@@ -30,7 +30,6 @@ pylint:
     - wildcard-import
     - multiple-statements
     - logging-not-lazy
-    - old-style-class
     - expression-not-assigned
     - wrong-import-order
     - wrong-import-position

@@ -8,7 +8,7 @@ from londiste.handler import build_handler, load_handler_modules
 
 from londiste.util import find_copy_source
 
-class ATable:
+class ATable(object):
     def __init__(self, row):
         self.table_name = row['table_name']
         self.dest_table = row['dest_table'] or row['table_name']

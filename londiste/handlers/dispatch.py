@@ -213,7 +213,7 @@ RETENTION_FUNC = "londiste.drop_obsolete_partitions"
 #------------------------------------------------------------------------------
 
 
-class BaseLoader:
+class BaseLoader(object):
     def __init__(self, table, pkeys, log, conf):
         self.table = table
         self.pkeys = pkeys
@@ -570,7 +570,7 @@ LOADERS = {'direct': DirectLoader, 'bulk': BulkLoader}
 #------------------------------------------------------------------------------
 
 
-class RowHandler:
+class RowHandler(object):
     def __init__(self, log):
         self.log = log
         self.table_map = {}

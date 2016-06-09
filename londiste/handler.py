@@ -40,7 +40,7 @@ import londiste.handlers
 __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
            'load_handler_modules', 'create_handler_string']
 
-class RowCache:
+class RowCache(object):
     def __init__(self, table_name):
         self.table_name = table_name
         self.keys = {}
@@ -68,7 +68,7 @@ class RowCache:
         fields = self.get_fields()
         skytools.magic_insert(curs, self.table_name, self.rows, fields)
 
-class BaseHandler:
+class BaseHandler(object):
     """Defines base API, does nothing.
     """
     handler_name = 'nop'
@@ -265,7 +265,7 @@ class TableHandler(BaseHandler):
 # ENCODING VALIDATOR
 #------------------------------------------------------------------------------
 
-class EncodingValidator:
+class EncodingValidator(object):
     def __init__(self, log, encoding = 'utf-8', replacement = u'\ufffd'):
         """validates the correctness of given encoding. when data contains
         illegal symbols, replaces them with <replacement> and logs the

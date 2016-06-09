@@ -91,7 +91,7 @@ import skytools
 
 META_PREFIX = "--*--"
 
-class Matcher:
+class Matcher(object):
     nice_name = None
     def match(self, objname, curs, tables, seqs):
         pass
@@ -175,7 +175,7 @@ for m in META_MATCHERS:
 class ExecAttrsException(skytools.UsageError):
     """Some parsing problem."""
 
-class ExecAttrs:
+class ExecAttrs(object):
     """Container and parser for EXECUTE attributes."""
     def __init__(self, sql=None, urlenc=None):
         """Create container and parse either sql or urlenc string."""
