@@ -42,7 +42,7 @@ Tests:
 >>> a.add_value("Local-Destination", "mytable-longname-more5")
 >>> a.add_value("Local-Destination", "mytable-longname-more6")
 >>> a.add_value("Local-Destination", "mytable-longname-more7")
->>> print a.to_sql()
+>>> print(a.to_sql())
 --*-- Local-Table: mytable
 --*-- Local-Sequence: seq1, seq2
 --*-- Local-Destination: mytable-longname-more1, mytable-longname-more2,
@@ -64,7 +64,7 @@ Tests:
 ... 
 ... create fooza;
 ... ''')
->>> print a.to_sql()
+>>> print(a.to_sql())
 --*-- Local-Table: foo, bar, zoo
 --*-- Local-Sequence: goo
 >>> seqs = {'public.goo': 'public.goo'}
@@ -79,7 +79,7 @@ False
 >>> sql = '''alter table @foo@;
 ... alter table @bar@;
 ... alter table @zoo@;'''
->>> print a.process_sql(sql, tables, seqs)
+>>> print(a.process_sql(sql, tables, seqs))
 alter table public.foo;
 alter table other."Bar";
 alter table "Other"."Foo";

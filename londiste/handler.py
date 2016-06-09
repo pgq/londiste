@@ -334,7 +334,7 @@ def register_handler_module(modname):
     try:
         __import__(modname)
     except ImportError:
-        print "Failed to load handler module: %s" % (modname,)
+        print("Failed to load handler module: %s" % (modname,))
         return
     m = sys.modules[modname]
     for h in m.__londiste_handlers__:
