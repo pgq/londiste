@@ -3,7 +3,6 @@
 
 from __future__ import division, absolute_import, print_function
 
-import new
 import sys
 
 DEFAULT_HANDLERS = [
@@ -29,7 +28,7 @@ def handler_args(name, cls):
         dct = {'__init__': _init_override, 'handler_name': name}
         module = sys.modules[cls.__module__]
         newname = '%s_%s' % (cls.__name__, name.replace('.', '_'))
-        newcls = new.classobj(newname, (cls,), dct)
+        newcls = type(newname, (cls,), dct)
         setattr(module, newname, newcls)
         module.__londiste_handlers__.append(newcls)
         module.__all__.append(newname)
