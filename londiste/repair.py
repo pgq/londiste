@@ -174,8 +174,10 @@ class Repairer(Syncer):
         f2 = open(dst_fn, "r", 64*1024)
         src_ln = f1.readline()
         dst_ln = f2.readline()
-        if src_ln: self.total_src += 1
-        if dst_ln: self.total_dst += 1
+        if src_ln:
+            self.total_src += 1
+        if dst_ln:
+            self.total_dst += 1
 
         fix = "fix.%s.sql" % tbl
         if os.path.isfile(fix):
@@ -202,10 +204,12 @@ class Repairer(Syncer):
 
             if not keep_src:
                 src_ln = f1.readline()
-                if src_ln: self.total_src += 1
+                if src_ln:
+                    self.total_src += 1
             if not keep_dst:
                 dst_ln = f2.readline()
-                if dst_ln: self.total_dst += 1
+                if dst_ln:
+                    self.total_dst += 1
 
         self.log.info("finished %s: src: %d rows, dst: %d rows,"
                 " missed: %d inserts, %d updates, %d deletes",

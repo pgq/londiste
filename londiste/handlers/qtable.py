@@ -71,7 +71,8 @@ class QueueSplitterHandler(BaseHandler):
 
         Event should be added to sql_queue or executed directly.
         """
-        if self.dst_queue_name is None: return
+        if self.dst_queue_name is None:
+            return
 
         data = [ev.type, ev.data,
                 ev.extra1, ev.extra2, ev.extra3, ev.extra4, ev.time]
@@ -79,7 +80,8 @@ class QueueSplitterHandler(BaseHandler):
 
     def finish_batch(self, batch_info, dst_curs):
         """Called when batch finishes."""
-        if self.dst_queue_name is None: return
+        if self.dst_queue_name is None:
+            return
 
         fields = ['type', 'data',
                   'extra1', 'extra2', 'extra3', 'extra4', 'time']

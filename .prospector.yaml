@@ -18,7 +18,6 @@ pylint:
     - attribute-defined-outside-init
     - bad-whitespace
     - expression-not-assigned
-    - multiple-statements
     - no-init
     - pointless-string-statement
     - redefined-builtin
