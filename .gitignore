@@ -11,8 +11,11 @@ __pycache__
 *-stamp
 debian/files
 debian/londiste
+debian/python-*
+debian/python3-*
 
 .tox
+.pybuild
 .coverage
 MANIFEST
 build
