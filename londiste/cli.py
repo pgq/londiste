@@ -1,21 +1,14 @@
-#! /usr/bin/env python
-
 """Londiste launcher.
 """
 
-import sys, os, os.path, optparse
-
-import pkgloader
-pkgloader.require('skytools', '3.0')
+import sys
+import os
+import os.path
+import optparse
 
 import skytools
-
-# python 2.3 will try londiste.py first...
-if os.path.exists(os.path.join(sys.path[0], 'londiste.py')) \
-    and not os.path.isdir(os.path.join(sys.path[0], 'londiste')):
-    del sys.path[0]
-
-import londiste, pgq.cascade.admin
+import pgq.cascade.admin
+import londiste
 
 command_usage = pgq.cascade.admin.command_usage + """
 Replication Daemon:
