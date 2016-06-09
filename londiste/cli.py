@@ -115,7 +115,7 @@ class Londiste(skytools.DBScript):
         g.add_option("--all", action="store_true",
                 help = "add: include all possible tables")
         g.add_option("--wait-sync", action="store_true",
-                help = "add: wait until all tables are in sync"),
+                help = "add: wait until all tables are in sync")
         g.add_option("--dest-table", metavar = "NAME",
                 help = "add: redirect changes to different table")
         g.add_option("--expect-sync", action="store_true", dest="expect_sync",
