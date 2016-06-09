@@ -880,9 +880,9 @@ class Replicator(CascadedWorker):
     def launch_copy(self, tbl_stat):
         """Run parallel worker for copy."""
         self.log.info("Launching copy process")
-        script = sys.argv[0]
+        main_exe = sys.argv[0]
         conf = self.cf.filename
-        cmd = [script, conf, 'copy', tbl_stat.name, '-d']
+        cmd = [main_exe, conf, 'copy', tbl_stat.name, '-d']
 
         # pass same verbosity options as main script got
         if self.options.quiet:
@@ -900,7 +900,7 @@ class Replicator(CascadedWorker):
 
         # launch and wait for daemonization result
         self.log.debug("Launch args: %r", cmd)
-        res = os.spawnvp(os.P_WAIT, script, cmd)
+        res = os.spawnvp(os.P_WAIT, main_exe, cmd)
         self.log.debug("Launch result: %r", res)
         if res != 0:
             self.log.error("Failed to launch copy process, result=%d", res)

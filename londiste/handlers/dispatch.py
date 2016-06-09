@@ -976,14 +976,15 @@ class Dispatcher (ShardHandler):
 
 
 # add arguments' description to handler's docstring
-found = False
-for line in __doc__.splitlines():
-    if line.startswith ("== HANDLER ARGUMENTS =="):
-        found = True
-    if found:
-        Dispatcher.__doc__ += "\n" + line
-del found
+def _install_handler_docstrings(dst_cls):
+    found = False
+    for line in __doc__.splitlines():
+        if line.startswith("== HANDLER ARGUMENTS =="):
+            found = True
+        if found:
+            dst_cls.__doc__ += "\n" + line
 
+_install_handler_docstrings(Dispatcher)
 
 #------------------------------------------------------------------------------
 # register handler class
@@ -1021,11 +1022,11 @@ BASE = { 'table_mode': 'part',
          'row_mode': 'keep_latest',
 }
 
-def set_handler_doc (cls, defs):
+def set_handler_doc(cls, handler_defs):
     """ generate handler docstring """
     cls.__doc__ = "Custom dispatch handler with default args.\n\n" \
                   "Parameters:\n"
-    for k,v in defs.items():
+    for k,v in handler_defs.items():
         cls.__doc__ += "  %s = %s\n" % (k,v)
 
 for load, load_dict in LOAD.items():

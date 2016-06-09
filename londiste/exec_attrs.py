@@ -167,10 +167,7 @@ META_MATCHERS = [
 ]
 
 # key to nice key
-META_KEYS = {}
-for m in META_MATCHERS:
-    k = m.nice_name.lower()
-    META_KEYS[k] = m
+META_KEYS = {m.nice_name.lower():m for m in META_MATCHERS}
 
 class ExecAttrsException(skytools.UsageError):
     """Some parsing problem."""

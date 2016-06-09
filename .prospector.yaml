@@ -16,7 +16,6 @@ pylint:
 
   disable:
     - bad-whitespace
-    - redefined-outer-name
     - too-many-return-statements
     - unused-variable
 
