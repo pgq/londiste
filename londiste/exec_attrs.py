@@ -33,8 +33,10 @@ Tests:
 >>> a.add_value("Local-Table", "mytable")
 >>> a.add_value("Local-Sequence", "seq1")
 >>> a.add_value("Local-Sequence", "seq2")
->>> a.to_urlenc()
-'local-table=mytable&local-sequence=seq1%2Cseq2'
+>>> a.to_urlenc() in (
+...     'local-table=mytable&local-sequence=seq1%2cseq2',
+...     'local-sequence=seq1%2cseq2&local-table=mytable')
+True
 >>> a.add_value("Local-Destination", "mytable-longname-more1")
 >>> a.add_value("Local-Destination", "mytable-longname-more2")
 >>> a.add_value("Local-Destination", "mytable-longname-more3")
