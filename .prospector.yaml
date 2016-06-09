@@ -18,13 +18,10 @@ pylint:
     - attribute-defined-outside-init
     - bad-whitespace
     - expression-not-assigned
-    - no-init
-    - pointless-string-statement
     - redefined-builtin
     - redefined-outer-name
     - too-many-return-statements
     - unused-variable
-    - using-constant-test
 
     # dispatch bug?
     - cell-var-from-loop

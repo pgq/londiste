@@ -401,11 +401,9 @@ def load_handler_modules(cf):
 
 def show(mods):
     if not mods:
-        if 0:
-            names = _handler_map.keys()
-            names.sort()
-        else:
-            names = _handler_list
+        #names = _handler_map.keys()
+        #names.sort()
+        names = _handler_list
         for n in names:
             kls = _handler_map[n]
             desc = kls.__doc__ or ''
