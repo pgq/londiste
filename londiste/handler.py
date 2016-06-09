@@ -192,7 +192,7 @@ class TableHandler(BaseHandler):
     allow_sql_event = 1
 
     def __init__(self, table_name, args, dest_table):
-        BaseHandler.__init__(self, table_name, args, dest_table)
+        super(TableHandler, self).__init__(table_name, args, dest_table)
 
         enc = args.get('encoding')
         if enc:
@@ -201,7 +201,7 @@ class TableHandler(BaseHandler):
             self.encoding_validator = None
 
     def get_config(self):
-        conf = BaseHandler.get_config(self)
+        conf = super(TableHandler, self).get_config()
         conf.ignore_truncate = self.get_arg('ignore_truncate', [0, 1], 0)
         return conf
 

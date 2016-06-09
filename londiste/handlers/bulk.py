@@ -75,7 +75,7 @@ class BulkLoader(BaseHandler):
     def __init__(self, table_name, args, dest_table):
         """Init per-batch table data cache."""
 
-        BaseHandler.__init__(self, table_name, args, dest_table)
+        super(BulkLoader, self).__init__(table_name, args, dest_table)
 
         self.pkey_list = None
         self.dist_fields = None
@@ -90,7 +90,7 @@ class BulkLoader(BaseHandler):
 
     def reset(self):
         self.pkey_ev_map = {}
-        BaseHandler.reset(self)
+        super(BulkLoader, self).reset()
 
     def finish_batch(self, batch_info, dst_curs):
         self.bulk_flush(dst_curs)

@@ -26,7 +26,7 @@ class CopyTable(Replicator):
         in same process.
         """
 
-        Replicator.__init__(self, args)
+        super(CopyTable, self).__init__(args)
 
         if not copy_thread:
             raise Exception("Combined copy not supported")
@@ -228,7 +228,7 @@ class CopyTable(Replicator):
             # check if needed? (table, not existing reg)
             self.register_copy_consumer()
             self.reg_ok = True
-        return Replicator.work(self)
+        return super(CopyTable, self).work()
 
     def register_copy_consumer(self):
         dst_db = self.get_database('db')

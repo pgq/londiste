@@ -327,7 +327,7 @@ class Replicator(CascadedWorker):
 
     def __init__(self, args):
         """Replication init."""
-        CascadedWorker.__init__(self, 'londiste3', 'db', args)
+        super(Replicator, self).__init__('londiste3', 'db', args)
 
         self.table_list = []
         self.table_map = {}
@@ -394,7 +394,7 @@ class Replicator(CascadedWorker):
         # the cascade-consumer can save last tick and commit.
 
         self.sql_list = []
-        CascadedWorker.process_remote_batch(self, src_db, tick_id, ev_list, dst_db)
+        super(Replicator, self).process_remote_batch(src_db, tick_id, ev_list, dst_db)
         self.flush_sql(dst_curs)
 
         for p in self.used_plugins.values():
@@ -647,7 +647,7 @@ class Replicator(CascadedWorker):
             self.flush_sql(dst_curs)
             self.update_seq(dst_curs, ev)
         else:
-            CascadedWorker.process_remote_event(self, src_curs, dst_curs, ev)
+            super(Replicator, self).process_remote_event(src_curs, dst_curs, ev)
 
         # no point keeping it around longer
         self.current_event = None
@@ -966,7 +966,7 @@ class Replicator(CascadedWorker):
     def process_root_node(self, dst_db):
         """On root node send seq changes to queue."""
 
-        CascadedWorker.process_root_node(self, dst_db)
+        super(Replicator, self).process_root_node(dst_db)
 
         q = "select * from londiste.root_check_seqs(%s)"
         self.exec_cmd(dst_db, q, [self.queue_name])
@@ -985,7 +985,7 @@ class Replicator(CascadedWorker):
         if filtered_copy:
             if ev.type[:9] in ('londiste.',):
                 return
-        CascadedWorker.copy_event(self, dst_curs, ev, filtered_copy)
+        super(Replicator, self).copy_event(dst_curs, ev, filtered_copy)
 
     def exception_hook(self, det, emsg):
         # add event info to error message

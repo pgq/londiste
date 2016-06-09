@@ -61,7 +61,7 @@ class Londiste(skytools.DBScript):
     def __init__(self, args):
         self.full_args = args
 
-        skytools.DBScript.__init__(self, 'londiste3', args)
+        super(Londiste, self).__init__('londiste3', args)
 
         if len(self.args) < 2:
             print("need command")

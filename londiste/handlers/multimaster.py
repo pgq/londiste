@@ -29,7 +29,7 @@ class MultimasterHandler(ApplyFuncHandler):
                 conf.pop(name)
         conf = skytools.db_urlencode(conf)
         args = update(args, {'func_name': 'merge_on_time', 'func_conf': conf})
-        ApplyFuncHandler.__init__(self, table_name, args, dest_table)
+        super(MultimasterHandler, self).__init__(table_name, args, dest_table)
 
     def _check_args(self, args):
         pass   # any arg can be passed

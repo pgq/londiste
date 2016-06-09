@@ -224,7 +224,7 @@ class BaseLoader(object):
 
 class DirectLoader(BaseLoader):
     def __init__(self, table, pkeys, log, conf):
-        BaseLoader.__init__(self, table, pkeys, log, conf)
+        super(DirectLoader, self).__init__(table, pkeys, log, conf)
         self.data = []
 
     def process(self, op, row):
@@ -255,7 +255,7 @@ class BaseBulkCollectingLoader(BaseLoader):
                 }
 
     def __init__(self, table, pkeys, log, conf):
-        BaseLoader.__init__(self, table, pkeys, log, conf)
+        super(BaseBulkCollectingLoader, self).__init__(table, pkeys, log, conf)
         if not self.pkeys:
             raise Exception('non-pk tables not supported: %s' % self.table)
         self.pkey_ev_map = {}
@@ -301,7 +301,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
     """ Provide methods for operating bulk collected events with temp table
     """
     def __init__(self, table, pkeys, log, conf):
-        BaseBulkCollectingLoader.__init__(self, table, pkeys, log, conf)
+        super(BaseBulkTempLoader, self).__init__(table, pkeys, log, conf)
         # temp table name
         if USE_REAL_TABLE:
             self.temp = self.table + "_loadertmpx"
@@ -377,7 +377,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         return self.logexec(curs, "analyze %s" % self.qtemp)
 
     def process(self, op, row):
-        BaseBulkCollectingLoader.process(self, op, row)
+        super(BaseBulkTempLoader, self).process(op, row)
         # TODO: maybe one assignment is enough?
         self.fields = row.keys()
 
@@ -386,7 +386,7 @@ class BulkLoader(BaseBulkTempLoader):
     """ Collects events to and loads bulk data using copy and temp tables
     """
     def __init__(self, table, pkeys, log, conf):
-        BaseBulkTempLoader.__init__(self, table, pkeys, log, conf)
+        super(BulkLoader, self).__init__(table, pkeys, log, conf)
         self.method = self.conf['method']
         self.run_analyze = self.conf['analyze']
         self.dist_fields = None
@@ -396,7 +396,7 @@ class BulkLoader(BaseBulkTempLoader):
     def process(self, op, row):
         if self.method == METH_INSERT and op != 'I':
             raise Exception('%s not supported by method insert' % op)
-        BaseBulkTempLoader.process(self, op, row)
+        super(BulkLoader, self).process(op, row)
 
     def process_delete(self, curs, op_map):
         """Process delete list"""
@@ -589,7 +589,7 @@ class KeepAllRowHandler(RowHandler):
             op = 'I'
         elif op == 'D':
             return
-        RowHandler.process(self, table, op, row)
+        super(KeepAllRowHandler, self).process(table, op, row)
 
 
 class KeepLatestRowHandler(RowHandler):
@@ -600,12 +600,12 @@ class KeepLatestRowHandler(RowHandler):
         Makes sense only for partitioned tables.
         """
         if op == 'U':
-            RowHandler.process(self, table, 'D', row)
-            RowHandler.process(self, table, 'I', row)
+            super(KeepLatestRowHandler, self).process(table, 'D', row)
+            super(KeepLatestRowHandler, self).process(table, 'I', row)
         elif op == 'I':
-            RowHandler.process(self, table, 'I', row)
+            super(KeepLatestRowHandler, self).process(table, 'I', row)
         elif op == 'D':
-            RowHandler.process(self, table, 'D', row)
+            super(KeepLatestRowHandler, self).process(table, 'D', row)
 
 
 ROW_HANDLERS = {'plain': RowHandler,
@@ -629,7 +629,7 @@ class Dispatcher(ShardHandler):
         # compat for dest-table
         dest_table = args.get('table', dest_table)
 
-        ShardHandler.__init__(self, table_name, args, dest_table)
+        super(Dispatcher, self).__init__(table_name, args, dest_table)
 
         # show args
         self.log.debug("dispatch.init: table_name=%r, args=%r", table_name, args)
@@ -666,7 +666,7 @@ class Dispatcher(ShardHandler):
 
     def get_config(self):
         """Processes args dict"""
-        conf = ShardHandler.get_config(self)
+        conf = super(Dispatcher, self).get_config()
         # set table mode
         conf.table_mode = self.get_arg('table_mode', TABLE_MODES)
         conf.analyze = self.get_arg('analyze', [0, 1])
@@ -720,14 +720,14 @@ class Dispatcher(ShardHandler):
     def reset(self):
         """Called before starting to process a batch.
         Should clean any pending data."""
-        ShardHandler.reset(self)
+        super(Dispatcher, self).reset()
 
     def prepare_batch(self, batch_info, dst_curs):
         """Called on first event for this table in current batch."""
         if self.conf.table_mode != 'ignore':
             self.batch_info = batch_info
             self.dst_curs = dst_curs
-        ShardHandler.prepare_batch(self, batch_info, dst_curs)
+        super(Dispatcher, self).prepare_batch(batch_info, dst_curs)
 
     def filter_data(self, data):
         """Process with fields skip and map"""
@@ -796,7 +796,7 @@ class Dispatcher(ShardHandler):
         """Called when batch finishes."""
         if self.conf.table_mode != 'ignore':
             self.row_handler.flush(dst_curs)
-        #ShardHandler.finish_batch(self, batch_info, dst_curs)
+        #super(Dispatcher, self).finish_batch(batch_info, dst_curs)
 
     def get_part_name(self):
         # if custom part name template given, use it
@@ -937,7 +937,7 @@ class Dispatcher(ShardHandler):
     def get_copy_condition(self, src_curs, dst_curs):
         """ Prepare where condition for copy and replay filtering.
         """
-        return ShardHandler.get_copy_condition(self, src_curs, dst_curs)
+        return super(Dispatcher, self).get_copy_condition(src_curs, dst_curs)
 
     def real_copy(self, tablename, src_curs, dst_curs, column_list):
         """do actual table copy and return tuple with number of bytes and rows

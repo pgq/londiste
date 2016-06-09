@@ -53,7 +53,7 @@ class QueueSplitterHandler(BaseHandler):
 
     def __init__(self, table_name, args, dest_table):
         """Init per-batch table data cache."""
-        BaseHandler.__init__(self, table_name, args, dest_table)
+        super(QueueSplitterHandler, self).__init__(table_name, args, dest_table)
         try:
             self.dst_queue_name = args['queue']
         except KeyError:
