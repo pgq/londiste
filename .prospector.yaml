@@ -1,0 +1,67 @@
+
+strictness: high
+
+max-line-length: 120
+
+member-warnings: true
+
+doc-warnings: false
+
+test-warnings: false
+
+pylint:
+  options:
+    init-import: true
+    dummy-variables-rgx: _$|dummy|___
+
+  disable:
+    - bad-whitespace
+    - unused-variable
+    - attribute-defined-outside-init
+    - redefined-builtin
+    - cell-var-from-loop
+    - superfluous-parens
+    - ungrouped-imports
+    - unneeded-not
+    - unused-import
+    - unused-wildcard-import
+    - redefined-outer-name
+    - no-init
+    - wildcard-import
+    - multiple-statements
+    - logging-not-lazy
+    - old-style-class
+    - expression-not-assigned
+    - wrong-import-order
+    - wrong-import-position
+    - pointless-string-statement
+    - multiple-imports
+    - too-many-return-statements
+    - using-constant-test
+    - line-too-long
+
+    # register_consumer
+    - arguments-differ
+    # optparse
+    - deprecated-module
+
+    - bare-except
+    - invalid-name
+    - no-self-use
+    - protected-access
+    - too-many-arguments
+    - too-many-branches
+    - too-many-instance-attributes
+    - too-many-lines
+    - too-many-locals
+    - too-many-statements
+    - unused-argument
+
+mccabe:
+  run: false
+
+pep8:
+  run: false
+pyflakes:
+  run: false
+
