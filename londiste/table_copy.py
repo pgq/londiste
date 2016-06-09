@@ -5,7 +5,9 @@ For internal usage.
 
 from __future__ import division, absolute_import, print_function
 
-import sys, time, skytools
+import sys
+import time
+import skytools
 
 from londiste.util import find_copy_source
 from skytools.dbstruct import *

@@ -3,7 +3,10 @@
 
 from __future__ import division, absolute_import, print_function
 
-import sys, time, skytools
+import sys
+import time
+import skytools
+
 from londiste.handler import build_handler, load_handler_modules
 
 from londiste.util import find_copy_source

@@ -34,7 +34,6 @@ pylint:
     - wrong-import-order
     - wrong-import-position
     - pointless-string-statement
-    - multiple-imports
     - too-many-return-statements
     - using-constant-test
     - line-too-long

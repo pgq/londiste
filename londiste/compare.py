@@ -5,7 +5,8 @@ Currently just does count(1) on both sides.
 
 from __future__ import division, absolute_import, print_function
 
-import sys, skytools
+import sys
+import skytools
 
 __all__ = ['Comparator']
 

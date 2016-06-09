@@ -5,7 +5,11 @@ Walks tables by primary key and searches for missing inserts/updates/deletes.
 
 from __future__ import division, absolute_import, print_function
 
-import sys, os, skytools, subprocess
+import sys
+import os
+import subprocess
+
+import skytools
 
 from londiste.syncer import Syncer
 
