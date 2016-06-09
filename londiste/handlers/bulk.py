@@ -43,13 +43,16 @@ USE_LONGLIVED_TEMP_TABLES = True
 
 USE_REAL_TABLE = False
 
+
 class BulkEvent(object):
     """Helper class for BulkLoader to store relevant data."""
     __slots__ = ('op', 'data', 'pk_data')
+
     def __init__(self, op, data, pk_data):
         self.op = op
         self.data = data
         self.pk_data = pk_data
+
 
 class BulkLoader(BaseHandler):
     """Bulk loading into OLAP database.
@@ -98,7 +101,7 @@ class BulkLoader(BaseHandler):
                             ev.ev_type, ev.ev_extra1, ev.ev_data))
         op = ev.ev_type[0]
         if op not in 'IUD':
-            raise Exception('Unknown event type: '+ev.ev_type)
+            raise Exception('Unknown event type: ' + ev.ev_type)
         # pkey_list = ev.ev_type[2:].split(',')
         data = skytools.db_urldecode(ev.ev_data)
 
@@ -185,7 +188,7 @@ class BulkLoader(BaseHandler):
         real_update_count = len(upd_list)
 
         self.log.debug("bulk_flush: %s  (I/U/D = %d/%d/%d)",
-                self.table_name, len(ins_list), len(upd_list), len(del_list))
+                       self.table_name, len(ins_list), len(upd_list), len(del_list))
 
         # hack to unbroke stuff
         if self.method == METH_MERGED:
@@ -225,8 +228,7 @@ class BulkLoader(BaseHandler):
             if col not in key_fields:
                 exp = "%s = %s.%s" % (quote_ident(col), qtemp, quote_ident(col))
                 slist.append(exp)
-        upd_sql = "update only %s set %s from %s where %s" % (
-                   qtbl, ", ".join(slist), qtemp, whe_expr)
+        upd_sql = "update only %s set %s from %s where %s" % (qtbl, ", ".join(slist), qtemp, whe_expr)
 
         # avoid updates on pk-only table
         if not slist:
@@ -255,7 +257,7 @@ class BulkLoader(BaseHandler):
             self.log.debug("bulk: %s - %d", curs.statusmessage, curs.rowcount)
             if len(del_list) != curs.rowcount:
                 self.log.warning("Delete mismatch: expected=%s deleted=%d",
-                        len(del_list), curs.rowcount)
+                                 len(del_list), curs.rowcount)
             temp_used = True
 
         # process updated rows
@@ -277,7 +279,7 @@ class BulkLoader(BaseHandler):
                 # check count
                 if len(upd_list) != curs.rowcount:
                     self.log.warning("Update mismatch: expected=%s updated=%d",
-                            len(upd_list), curs.rowcount)
+                                     len(upd_list), curs.rowcount)
             else:
                 # delete from main table
                 self.log.debug('bulk: %s', del_sql)
@@ -286,7 +288,7 @@ class BulkLoader(BaseHandler):
                 # check count
                 if real_update_count != curs.rowcount:
                     self.log.warning("bulk: Update mismatch: expected=%s deleted=%d",
-                            real_update_count, curs.rowcount)
+                                     real_update_count, curs.rowcount)
                 # insert into main table
                 if AVOID_BIZGRES_BUG:
                     # copy again, into main table
@@ -331,8 +333,8 @@ class BulkLoader(BaseHandler):
 
             # create non-temp table
             q = "create table %s (like %s)" % (
-                        quote_fqident(tempname),
-                        quote_fqident(self.dest_table))
+                quote_fqident(tempname),
+                quote_fqident(self.dest_table))
             self.log.debug("bulk: Creating real table: %s", q)
             curs.execute(q)
             return tempname, quote_fqident(tempname)
@@ -346,7 +348,7 @@ class BulkLoader(BaseHandler):
         arg = "on commit preserve rows"
         # create temp table for loading
         q = "create temp table %s (like %s) %s" % (
-                quote_ident(tempname), quote_fqident(self.dest_table), arg)
+            quote_ident(tempname), quote_fqident(self.dest_table), arg)
         self.log.debug("bulk: Creating temp table: %s", q)
         curs.execute(q)
         return tempname, quote_ident(tempname)

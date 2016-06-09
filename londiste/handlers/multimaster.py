@@ -15,6 +15,7 @@ from londiste.handlers import update
 
 __all__ = ['MultimasterHandler']
 
+
 class MultimasterHandler(ApplyFuncHandler):
     __doc__ = __doc__
     handler_name = 'multimaster'
@@ -31,7 +32,7 @@ class MultimasterHandler(ApplyFuncHandler):
         ApplyFuncHandler.__init__(self, table_name, args, dest_table)
 
     def _check_args(self, args):
-        pass # any arg can be passed
+        pass   # any arg can be passed
 
     def add(self, trigger_arg_list):
         """Create SKIP and BEFORE INSERT trigger"""

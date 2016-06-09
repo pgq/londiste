@@ -7,6 +7,7 @@ from londiste.handler import BaseHandler
 
 __all__ = ['ApplyFuncHandler']
 
+
 class ApplyFuncHandler(BaseHandler):
     """Call DB function to apply event.
 

@@ -42,6 +42,7 @@ class QueueTableHandler(BaseHandler):
     def needs_table(self):
         return False
 
+
 class QueueSplitterHandler(BaseHandler):
     """Send events for one table to another queue.
 

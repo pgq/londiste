@@ -203,7 +203,6 @@ PART_FUNC_ARGS = ['parent', 'part', 'pkeys', 'part_field', 'part_time', 'period'
 RETENTION_FUNC = "londiste.drop_obsolete_partitions"
 
 
-
 #------------------------------------------------------------------------------
 # LOADERS
 #------------------------------------------------------------------------------
@@ -248,12 +247,13 @@ class BaseBulkCollectingLoader(BaseLoader):
     If after processing the op is not in I,U or D, then ignore that event for
     rest
     """
-    OP_GRAPH = {None:{'U':'U', 'I':'I', 'D':'D'},
-                'I':{'D':'.'},
-                'U':{'D':'D'},
-                'D':{'I':'U'},
-                '.':{'I':'I'},
+    OP_GRAPH = {None: {'U': 'U', 'I': 'I', 'D': 'D'},
+                'I': {'D': '.'},
+                'U': {'D': 'D'},
+                'D': {'I': 'U'},
+                '.': {'I': 'I'},
                 }
+
     def __init__(self, table, pkeys, log, conf):
         BaseLoader.__init__(self, table, pkeys, log, conf)
         if not self.pkeys:
@@ -331,9 +331,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
 
     def _where(self):
         tmpl = "%(tbl)s.%(col)s = t.%(col)s"
-        stmt = (tmpl % {'col': quote_ident(f),
-                         'tbl': self.qtable,
-                        }
+        stmt = (tmpl % {'col': quote_ident(f), 'tbl': self.qtable}
                 for f in self.keys)
         return ' and '.join(stmt)
 
@@ -341,8 +339,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         return ','.join(quote_ident(f) for f in self.fields)
 
     def insert(self, curs):
-        sql = "insert into %s (%s) select %s from %s" % (
-                self.qtable, self._cols(), self._cols(), self.qtemp)
+        sql = "insert into %s (%s) select %s from %s" % (self.qtable, self._cols(), self._cols(), self.qtemp)
         return self.logexec(curs, sql)
 
     def update(self, curs):
@@ -356,13 +353,11 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         eqlist = [tmpl % (c, c) for c in qcols]
         _set = ", ".join(eqlist)
 
-        sql = "update only %s set %s from %s as t where %s" % (
-                self.qtable, _set, self.qtemp, self._where())
+        sql = "update only %s set %s from %s as t where %s" % (self.qtable, _set, self.qtemp, self._where())
         return self.logexec(curs, sql)
 
     def delete(self, curs):
-        sql = "delete from only %s using %s as t where %s" % (
-                self.qtable, self.qtemp, self._where())
+        sql = "delete from only %s using %s as t where %s" % (self.qtable, self.qtemp, self._where())
         return self.logexec(curs, sql)
 
     def truncate(self, curs):
@@ -417,7 +412,7 @@ class BulkLoader(BaseBulkTempLoader):
         # check if right amount of rows deleted (only in direct mode)
         if self.conf.table_mode == 'direct' and cnt != curs.rowcount:
             self.log.warning("%s: Delete mismatch: expected=%s deleted=%d",
-                    self.table, cnt, curs.rowcount)
+                             self.table, cnt, curs.rowcount)
 
     def process_update(self, curs, op_map):
         """Process update list"""
@@ -439,14 +434,14 @@ class BulkLoader(BaseBulkTempLoader):
             # check count (only in direct mode)
             if self.conf.table_mode == 'direct' and cnt != curs.rowcount:
                 self.log.warning("%s: Update mismatch: expected=%s updated=%d",
-                        self.table, cnt, curs.rowcount)
+                                 self.table, cnt, curs.rowcount)
         else:
             # delete from main table using temp
             self.delete(curs)
             # check count (only in direct mode)
             if self.conf.table_mode == 'direct' and real_cnt != curs.rowcount:
                 self.log.warning("%s: Update mismatch: expected=%s deleted=%d",
-                        self.table, real_cnt, curs.rowcount)
+                                 self.table, real_cnt, curs.rowcount)
             # insert into main table
             if AVOID_BIZGRES_BUG:
                 # copy again, into main table
@@ -469,7 +464,7 @@ class BulkLoader(BaseBulkTempLoader):
 
     def bulk_flush(self, curs, op_map):
         self.log.debug("bulk_flush: %s  (I/U/D = %d/%d/%d)", self.table,
-                len(op_map['I']), len(op_map['U']), len(op_map['D']))
+                       len(op_map['I']), len(op_map['U']), len(op_map['D']))
 
         # fetch distribution fields
         if self.dist_fields is None:
@@ -560,11 +555,9 @@ class BulkLoader(BaseBulkTempLoader):
 LOADERS = {'direct': DirectLoader, 'bulk': BulkLoader}
 
 
-
 #------------------------------------------------------------------------------
 # ROW HANDLERS
 #------------------------------------------------------------------------------
-
 
 class RowHandler(object):
     def __init__(self, log):
@@ -623,7 +616,6 @@ ROW_HANDLERS = {'plain': RowHandler,
 #------------------------------------------------------------------------------
 # DISPATCHER
 #------------------------------------------------------------------------------
-
 
 class Dispatcher(ShardHandler):
     """Partitioned loader.
@@ -707,10 +699,10 @@ class Dispatcher(ShardHandler):
         conf.method = self.get_arg('method', METHODS)
         # fields to skip
         conf.skip_fields = [f.strip().lower()
-                for f in self.args.get('skip_fields', '').split(',')]
+                            for f in self.args.get('skip_fields', '').split(',')]
         # get fields map (obsolete, for compatibility reasons)
         fields = self.args.get('fields', '*')
-        if  fields == "*":
+        if fields == "*":
             conf.field_map = None
         else:
             conf.field_map = {}
@@ -723,7 +715,7 @@ class Dispatcher(ShardHandler):
         return conf
 
     def _validate_hash_key(self):
-        pass # no need for hash key when not sharding
+        pass  # no need for hash key when not sharding
 
     def reset(self):
         """Called before starting to process a batch.
@@ -743,7 +735,7 @@ class Dispatcher(ShardHandler):
         fmap = self.conf.field_map
         if fskip:
             data = dict((k, v) for k, v in data.items()
-                    if k not in fskip)
+                        if k not in fskip)
         if fmap:
             # when field name not present in source is used then  None (NULL)
             # value is inserted. is it ok?
@@ -777,7 +769,7 @@ class Dispatcher(ShardHandler):
         if op not in 'IUD':
             raise Exception('Unknown event type: %s' % ev.ev_type)
         # process only operations specified
-        if not op in self.conf.event_types:
+        if op not in self.conf.event_types:
             #self.log.debug('dispatch.process_event: ignored event type')
             return
         if self.pkeys is None:
@@ -811,7 +803,7 @@ class Dispatcher(ShardHandler):
         if self.conf.part_name:
             return self.conf.part_name
         parts = ['year', 'month', 'day', 'hour']
-        name_parts = ['parent'] + parts[:parts.index(self.conf.period)+1]
+        name_parts = ['parent'] + parts[:parts.index(self.conf.period) + 1]
         return '_'.join('%%(%s)s' % part for part in name_parts)
 
     def split_format(self, ev, data):
@@ -828,14 +820,14 @@ class Dispatcher(ShardHandler):
                 raise Exception('part_field(%s) is NULL: %s' % (self.conf.part_field, ev))
             dtm = datetime.datetime.strptime(dt_str[:19], "%Y-%m-%d %H:%M:%S")
         else:
-            raise UsageError('Bad value for part_mode: %s' %\
-                    self.conf.part_mode)
-        vals = {'parent': self.dest_table,
-                'year': "%04d" % dtm.year,
-                'month': "%02d" % dtm.month,
-                'day': "%02d" % dtm.day,
-                'hour': "%02d" % dtm.hour,
-               }
+            raise UsageError('Bad value for part_mode: %s' % self.conf.part_mode)
+        vals = {
+            'parent': self.dest_table,
+            'year': "%04d" % dtm.year,
+            'month': "%02d" % dtm.month,
+            'day': "%02d" % dtm.day,
+            'hour': "%02d" % dtm.hour,
+        }
         return (self.get_part_name() % vals, dtm)
 
     def check_part(self, dst, part_time):
@@ -856,7 +848,7 @@ class Dispatcher(ShardHandler):
         vals = {'dest': dst,
                 'part': dst,
                 'parent': self.fq_dest_table,
-                'pkeys': ",".join(self.pkeys), # quoting?
+                'pkeys': ",".join(self.pkeys),  # quoting?
                 # we do this to make sure that constraints for
                 # tables who contain a schema will still work
                 'schema_table': dst.replace(".", "__"),
@@ -864,6 +856,7 @@ class Dispatcher(ShardHandler):
                 'part_time': part_time,
                 'period': self.conf.period,
                 }
+
         def exec_with_vals(tmpl):
             if tmpl:
                 sql = tmpl % vals
@@ -1011,7 +1004,7 @@ LOAD = {
 }
 PERIOD = {
     'hourly': {'period': 'hour'},
-    'daily' : {'period': 'day'},
+    'daily': {'period': 'day'},
     'monthly': {'period': 'month'},
     'yearly': {'period': 'year'},
 }
@@ -1026,6 +1019,7 @@ BASE = {
     'row_mode': 'keep_latest',
 }
 
+
 def set_handler_doc(cls, handler_defs):
     """ generate handler docstring """
     cls.__doc__ = "Custom dispatch handler with default args.\n\n" \
@@ -1033,31 +1027,40 @@ def set_handler_doc(cls, handler_defs):
     for k, v in handler_defs.items():
         cls.__doc__ += "  %s = %s\n" % (k, v)
 
+
 def _generate_handlers():
     for load, load_dict in LOAD.items():
         for period, period_dict in PERIOD.items():
             for mode, mode_dict in MODE.items():
                 handler_name = '_'.join(p for p in (load, period, mode) if p)
+
                 # define creator func to keep default dicts in separate context
                 def create_handler(_handler_name, _load_dict, _period_dict, _mode_dict):
                     default = update(_mode_dict, _period_dict, _load_dict, BASE)
+
                     @handler_args(_handler_name)
                     def handler_func(args):
                         return update(args, default)
+
                     assert handler_func   # avoid 'unused' warning, decorator registers it
+
                 create_handler(handler_name, load_dict, period_dict, mode_dict)
-                hcls = __londiste_handlers__[-1] # it was just added
+                hcls = __londiste_handlers__[-1]   # it was just added
                 defs = update(mode_dict, period_dict, load_dict, BASE)
                 set_handler_doc(hcls, defs)
 
 _generate_handlers()
 
+
 @handler_args('bulk_direct')
 def bulk_direct_handler(args):
     return update(args, {'load_mode': 'bulk', 'table_mode': 'direct'})
+
 set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': 'direct'})
+
 
 @handler_args('direct')
 def direct_handler(args):
     return update(args, {'load_mode': 'direct', 'table_mode': 'direct'})
+
 set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'direct', 'table_mode': 'direct'})

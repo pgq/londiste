@@ -15,8 +15,6 @@ pylint:
     dummy-variables-rgx: _$|dummy|___
 
   disable:
-    # register_consumer
-    - arguments-differ
     # optparse
     - deprecated-module
 
@@ -34,10 +32,5 @@ pylint:
     - unused-argument
 
 mccabe:
-  run: false
-
-pep8:
-  run: false
-pyflakes:
   run: false
 
