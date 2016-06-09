@@ -407,7 +407,7 @@ class BulkLoader(BaseBulkTempLoader):
         """Process delete list"""
         data = op_map['D']
         cnt = len(data)
-        if (cnt == 0):
+        if cnt == 0:
             return
         self.log.debug("bulk: Deleting %d rows from %s", cnt, self.table)
         # copy rows to temp
@@ -428,7 +428,7 @@ class BulkLoader(BaseBulkTempLoader):
         if self.method == METH_MERGED:
             data += op_map['I']
         cnt = len(data)
-        if (cnt == 0):
+        if cnt == 0:
             return
         self.log.debug("bulk: Updating %d rows in %s", cnt, self.table)
         # copy rows to temp

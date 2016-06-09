@@ -26,7 +26,6 @@ pylint:
     - pointless-string-statement
     - redefined-builtin
     - redefined-outer-name
-    - superfluous-parens
     - too-many-return-statements
     - unneeded-not
     - unused-variable
