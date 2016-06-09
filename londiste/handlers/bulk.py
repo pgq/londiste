@@ -80,7 +80,7 @@ class BulkLoader(BaseHandler):
 
         self.pkey_ev_map = {}
         self.method = int(args.get('method', DEFAULT_METHOD))
-        if self.method not in (0,1,2):
+        if self.method not in (0, 1, 2):
             raise Exception('unknown method: %s' % self.method)
 
         self.log.debug('bulk_init(%r), method=%d', args, self.method)

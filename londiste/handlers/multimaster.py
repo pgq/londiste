@@ -23,14 +23,14 @@ class MultimasterHandler(ApplyFuncHandler):
         """Init per-batch table data cache."""
         conf = args.copy()
         # remove Multimaster args from conf
-        for name in ['func_name','func_conf']:
+        for name in ['func_name', 'func_conf']:
             if name in conf:
                 conf.pop(name)
         conf = skytools.db_urlencode(conf)
         args = update(args, {'func_name': 'merge_on_time', 'func_conf': conf})
         ApplyFuncHandler.__init__(self, table_name, args, dest_table)
 
-    def _check_args (self, args):
+    def _check_args(self, args):
         pass # any arg can be passed
 
     def add(self, trigger_arg_list):

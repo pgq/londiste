@@ -37,7 +37,7 @@ class QueueTableHandler(BaseHandler):
 
     def real_copy(self, tablename, src_curs, dst_curs, column_list):
         """Force copy not to start"""
-        return (0,0)
+        return (0, 0)
 
     def needs_table(self):
         return False

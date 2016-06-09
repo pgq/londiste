@@ -17,14 +17,14 @@ __all__ = ['Replicator', 'TableState',
     'TABLE_WANNA_SYNC', 'TABLE_DO_SYNC', 'TABLE_OK']
 
 # state                 # owner - who is allowed to change
-TABLE_MISSING      = 0  # main
-TABLE_IN_COPY      = 1  # copy
-TABLE_CATCHING_UP  = 2  # copy
-TABLE_WANNA_SYNC   = 3  # main
-TABLE_DO_SYNC      = 4  # copy
-TABLE_OK           = 5  # setup
+TABLE_MISSING = 0       # main
+TABLE_IN_COPY = 1       # copy
+TABLE_CATCHING_UP = 2   # copy
+TABLE_WANNA_SYNC = 3    # main
+TABLE_DO_SYNC = 4       # copy
+TABLE_OK = 5            # setup
 
-SYNC_OK   = 0  # continue with batch
+SYNC_OK = 0    # continue with batch
 SYNC_LOOP = 1  # sleep, try again
 SYNC_EXIT = 2  # nothing to do, exit script
 
@@ -100,7 +100,7 @@ class TableState(object):
         self.copy_pos = 0
         self.max_parallel_copy = MAX_PARALLEL_COPY
 
-    def change_snapshot(self, str_snapshot, tag_changed = 1):
+    def change_snapshot(self, str_snapshot, tag_changed=1):
         """Set snapshot."""
         if self.str_snapshot == str_snapshot:
             return
@@ -116,7 +116,7 @@ class TableState(object):
             self.last_tick = None
             self.changed = 1
 
-    def change_state(self, state, tick_id = None):
+    def change_state(self, state, tick_id=None):
         """Set state."""
         if self.state == state and self.sync_tick_id == tick_id:
             return
@@ -186,7 +186,7 @@ class TableState(object):
         if row['merge_state'] == "?":
             self.changed = 1
 
-        self.copy_pos = int(row.get('copy_pos','0'))
+        self.copy_pos = int(row.get('copy_pos', '0'))
         self.max_parallel_copy = int(self.table_attrs.get('max_parallel_copy',
                                                         self.max_parallel_copy))
 
@@ -353,8 +353,7 @@ class Replicator(CascadedWorker):
     code_check_done = 0
     def check_code(self, db):
         objs = [
-            skytools.DBFunction("pgq.maint_operations", 0,
-                sql_file = "londiste.maint-upgrade.sql"),
+            skytools.DBFunction("pgq.maint_operations", 0, sql_file="londiste.maint-upgrade.sql"),
         ]
         skytools.db_install(db.cursor(), objs, self.log)
         db.commit()
@@ -707,7 +706,7 @@ class Replicator(CascadedWorker):
         # parse event
         fname = ev.extra1
         s_attrs = ev.extra2
-        exec_attrs = ExecAttrs(urlenc = s_attrs)
+        exec_attrs = ExecAttrs(urlenc=s_attrs)
         sql = ev.data
 
         # fixme: curs?
@@ -726,7 +725,7 @@ class Replicator(CascadedWorker):
             tbl_map[t.name] = t.dest_table
 
         q = "select * from londiste.execute_start(%s, %s, %s, false, %s)"
-        res = self.exec_cmd(dst_curs, q, [self.queue_name, fname, sql, s_attrs], commit = False)
+        res = self.exec_cmd(dst_curs, q, [self.queue_name, fname, sql, s_attrs], commit=False)
         ret = res[0]['ret_code']
         if ret > 200:
             self.log.warning("Skipping execution of '%s'", fname)
@@ -743,7 +742,7 @@ class Replicator(CascadedWorker):
             self.log.info("%s: execution not needed on this node")
 
         q = "select * from londiste.execute_finish(%s, %s)"
-        self.exec_cmd(dst_curs, q, [self.queue_name, fname], commit = False)
+        self.exec_cmd(dst_curs, q, [self.queue_name, fname], commit=False)
         if pgver >= 80300:
             dst_curs.execute("set local session_replication_role = 'replica'")
 
@@ -852,15 +851,14 @@ class Replicator(CascadedWorker):
                              t.name, t.str_snapshot, merge_state])
             t.changed = 0
 
-    def change_table_state(self, dst_db, tbl, state, tick_id = None):
+    def change_table_state(self, dst_db, tbl, state, tick_id=None):
         """Chage state for table."""
 
         tbl.change_state(state, tick_id)
         self.save_table_state(dst_db.cursor())
         dst_db.commit()
 
-        self.log.info("Table %s status changed to '%s'",
-                      tbl.name, tbl.render_state())
+        self.log.info("Table %s status changed to '%s'", tbl.name, tbl.render_state())
 
     def get_tables_in_state(self, state):
         "get all tables with specific state"
@@ -993,7 +991,7 @@ class Replicator(CascadedWorker):
         # add event info to error message
         if self.current_event:
             ev = self.current_event
-            info = "[ev_id=%d,ev_txid=%d] " % (ev.ev_id,ev.ev_txid)
+            info = "[ev_id=%d,ev_txid=%d] " % (ev.ev_id, ev.ev_txid)
             emsg = info + emsg
         super(Replicator, self).exception_hook(det, emsg)
 

@@ -139,7 +139,7 @@ class Syncer(skytools.DBScript):
         """Syncer main function."""
 
         # 'SELECT 1' and COPY must use same snapshot, so change isolation level.
-        dst_db = self.get_database('db', isolation_level = skytools.I_REPEATABLE_READ)
+        dst_db = self.get_database('db', isolation_level=skytools.I_REPEATABLE_READ)
         pnode, ploc = self.get_provider_location(dst_db)
 
         dst_tables, names = self.get_tables(dst_db)
@@ -173,11 +173,11 @@ class Syncer(skytools.DBScript):
 
     def process_one_table(self, tbl, t2, dst_db, provider_node, provider_loc):
 
-        lock_db = self.get_database('lock_db', connstr = provider_loc, profile = 'remote')
-        setup_db = self.get_database('setup_db', autocommit = 1, connstr = provider_loc, profile = 'remote')
+        lock_db = self.get_database('lock_db', connstr=provider_loc, profile='remote')
+        setup_db = self.get_database('setup_db', autocommit=1, connstr=provider_loc, profile='remote')
 
-        src_db = self.get_database('provider_db', connstr = provider_loc, profile = 'remote',
-                                   isolation_level = skytools.I_REPEATABLE_READ)
+        src_db = self.get_database('provider_db', connstr=provider_loc, profile='remote',
+                                   isolation_level=skytools.I_REPEATABLE_READ)
 
         setup_curs = setup_db.cursor()
 

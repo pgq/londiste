@@ -20,7 +20,7 @@ class CopyTable(Replicator):
 
     reg_ok = False
 
-    def __init__(self, args, copy_thread = 1):
+    def __init__(self, args, copy_thread=1):
         """Initializer.  copy_thread arg shows if the copy process is separate
         from main Playback thread or not.  copy_thread=0 means copying happens
         in same process.
@@ -138,7 +138,7 @@ class CopyTable(Replicator):
         # drop unnecessary stuff
         if cmode > 0:
             objs = T_CONSTRAINT | T_INDEX | T_RULE | T_PARENT # | T_TRIGGER
-            dst_struct.drop(dst_curs, objs, log = self.log)
+            dst_struct.drop(dst_curs, objs, log=self.log)
 
             # drop data
             if tbl_stat.table_attrs.get('skip_truncate'):
@@ -184,7 +184,7 @@ class CopyTable(Replicator):
 
         # create previously dropped objects
         if cmode == 1:
-            dst_struct.create(dst_curs, objs, log = self.log)
+            dst_struct.create(dst_curs, objs, log=self.log)
         elif cmode == 2:
             dst_db.commit()
 
@@ -236,7 +236,7 @@ class CopyTable(Replicator):
 
         # fetch table attrs
         q = "select * from londiste.get_table_list(%s) where table_name = %s"
-        dst_curs.execute(q, [ self.queue_name, self.copy_table_name ])
+        dst_curs.execute(q, [self.queue_name, self.copy_table_name])
         rows = dst_curs.fetchall()
         attrs = {}
         if len(rows) > 0:
@@ -246,7 +246,7 @@ class CopyTable(Replicator):
 
         # fetch parent consumer state
         q = "select * from pgq_node.get_consumer_state(%s, %s)"
-        rows = self.exec_cmd(dst_db, q, [ self.queue_name, self.old_consumer_name ])
+        rows = self.exec_cmd(dst_db, q, [self.queue_name, self.old_consumer_name])
         state = rows[0]
         source_node = state['provider_node']
         source_location = state['provider_location']
@@ -260,7 +260,7 @@ class CopyTable(Replicator):
                 # take node from attrs
                 source_node = attrs['copy_node']
                 q = "select * from pgq_node.get_queue_locations(%s) where node_name = %s"
-                dst_curs.execute(q, [ self.queue_name, source_node ])
+                dst_curs.execute(q, [self.queue_name, source_node])
                 rows = dst_curs.fetchall()
                 if len(rows):
                     source_location = rows[0]['node_location']

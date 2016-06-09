@@ -15,9 +15,6 @@ pylint:
     dummy-variables-rgx: _$|dummy|___
 
   disable:
-    - bad-whitespace
-    - too-many-return-statements
-
     # register_consumer
     - arguments-differ
     # optparse
@@ -32,6 +29,7 @@ pylint:
     - too-many-instance-attributes
     - too-many-lines
     - too-many-locals
+    - too-many-return-statements
     - too-many-statements
     - unused-argument
 

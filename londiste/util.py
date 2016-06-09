@@ -37,7 +37,7 @@ def find_copy_source(script, queue_name, copy_table_name, node_name, node_locati
         need = set(copy_table_name)
 
     while 1:
-        src_db = script.get_database('_source_db', connstr = node_location, autocommit = 1, profile = 'remote')
+        src_db = script.get_database('_source_db', connstr=node_location, autocommit=1, profile='remote')
         src_curs = src_db.cursor()
 
         q = "select * from pgq_node.get_node_info(%s)"

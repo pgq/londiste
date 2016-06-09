@@ -29,7 +29,7 @@ from londiste.handler import TableHandler
 
 __all__ = ['ShardHandler', 'PartHandler']
 
-class ShardHandler (TableHandler):
+class ShardHandler(TableHandler):
     __doc__ = __doc__
     handler_name = 'shard'
 
@@ -107,8 +107,8 @@ class ShardHandler (TableHandler):
         if self.shard_nr is None or self.hash_mask is None:
             raise Exception('Error loading shard info')
 
-class PartHandler (ShardHandler):
-    __doc__ = "Deprecated compat name for shard handler.\n" + __doc__.split('\n',1)[1]
+class PartHandler(ShardHandler):
+    __doc__ = "Deprecated compat name for shard handler.\n" + __doc__.split('\n', 1)[1]
     handler_name = 'part'
 
 # register handler class

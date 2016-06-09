@@ -304,10 +304,10 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         BaseBulkCollectingLoader.__init__(self, table, pkeys, log, conf)
         # temp table name
         if USE_REAL_TABLE:
-            self.temp =  self.table + "_loadertmpx"
+            self.temp = self.table + "_loadertmpx"
             self.qtemp = quote_fqident(self.temp)
         else:
-            self.temp =  self.table.replace('.', '_') + "_loadertmp"
+            self.temp = self.table.replace('.', '_') + "_loadertmp"
             self.qtemp = quote_ident(self.temp)
         # quoted table name
         self.qtable = quote_fqident(self.table)
@@ -353,8 +353,8 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
             return
 
         tmpl = "%s = t.%s"
-        eqlist = [tmpl % (c,c) for c in qcols]
-        _set =  ", ".join(eqlist)
+        eqlist = [tmpl % (c, c) for c in qcols]
+        _set = ", ".join(eqlist)
 
         sql = "update only %s set %s from %s as t where %s" % (
                 self.qtable, _set, self.qtemp, self._where())
@@ -450,7 +450,7 @@ class BulkLoader(BaseBulkTempLoader):
             # insert into main table
             if AVOID_BIZGRES_BUG:
                 # copy again, into main table
-                self.bulk_insert(curs, data, table = self.qtable)
+                self.bulk_insert(curs, data, table=self.qtable)
             else:
                 # insert from temp - better way, but does not work
                 # due bizgres bug
@@ -465,7 +465,7 @@ class BulkLoader(BaseBulkTempLoader):
             return
         self.log.debug("bulk: Inserting %d rows into %s", cnt, self.table)
         # copy into target table (no temp used)
-        self.bulk_insert(curs, data, table = self.qtable)
+        self.bulk_insert(curs, data, table=self.qtable)
 
     def bulk_flush(self, curs, op_map):
         self.log.debug("bulk_flush: %s  (I/U/D = %d/%d/%d)", self.table,
@@ -517,7 +517,7 @@ class BulkLoader(BaseBulkTempLoader):
         self.temp_present = True
         return True
 
-    def bulk_insert(self, curs, data, table = None):
+    def bulk_insert(self, curs, data, table=None):
         """Copy data to table. If table not provided, use temp table.
         When re-using existing temp table, it is always truncated first and
         analyzed after copy.
@@ -533,7 +533,7 @@ class BulkLoader(BaseBulkTempLoader):
                 self.truncate(curs)
         self.log.debug("bulk: COPY %d rows into %s", len(data), table)
         skytools.magic_insert(curs, table, data, self.fields,
-                              quoted_table = True)
+                              quoted_table=True)
         if _use_temp and self.run_analyze:
             self.analyze(curs)
 
@@ -625,7 +625,7 @@ ROW_HANDLERS = {'plain': RowHandler,
 #------------------------------------------------------------------------------
 
 
-class Dispatcher (ShardHandler):
+class Dispatcher(ShardHandler):
     """Partitioned loader.
     Splits events into partitions, if requested.
     Then applies them without further processing.
@@ -649,7 +649,7 @@ class Dispatcher (ShardHandler):
         hdlr_cls = ROW_HANDLERS[self.conf.row_mode]
         self.row_handler = hdlr_cls(self.log)
 
-    def _parse_args_from_doc (self):
+    def _parse_args_from_doc(self):
         doc = __doc__
         params_descr = []
         params_found = False
@@ -667,7 +667,7 @@ class Dispatcher (ShardHandler):
                 else:
                     name, expr, text = params_descr.pop()
                     text += ln + "\n"
-                params_descr.append ((name, expr, text))
+                params_descr.append((name, expr, text))
             elif ln == "== HANDLER ARGUMENTS ==":
                 params_found = True
         return params_descr
@@ -681,7 +681,7 @@ class Dispatcher (ShardHandler):
         if conf.table_mode == 'part':
             conf.part_mode = self.get_arg('part_mode', PART_MODES)
             conf.part_field = self.args.get('part_field')
-            if conf.part_mode == 'date_field' and not conf.part_field :
+            if conf.part_mode == 'date_field' and not conf.part_field:
                 raise Exception('part_mode date_field requires part_field!')
             conf.period = self.get_arg('period', PERIODS)
             conf.part_name = self.args.get('part_name')
@@ -707,7 +707,7 @@ class Dispatcher (ShardHandler):
         conf.method = self.get_arg('method', METHODS)
         # fields to skip
         conf.skip_fields = [f.strip().lower()
-                for f in self.args.get('skip_fields','').split(',')]
+                for f in self.args.get('skip_fields', '').split(',')]
         # get fields map (obsolete, for compatibility reasons)
         fields = self.args.get('fields', '*')
         if  fields == "*":
@@ -747,7 +747,7 @@ class Dispatcher (ShardHandler):
         if fmap:
             # when field name not present in source is used then  None (NULL)
             # value is inserted. is it ok?
-            data = dict( (v, data.get(k)) for k, v in fmap.items())
+            data = dict((v, data.get(k)) for k, v in fmap.items())
         return data
 
     def filter_pkeys(self, pkeys):
@@ -846,7 +846,7 @@ class Dispatcher (ShardHandler):
         else clone master table"""
         curs = self.dst_curs
         if (self.conf.ignore_old_events and self.conf.retention_period and
-                self.is_obsolete_partition (dst, self.conf.retention_period, self.conf.period)):
+                self.is_obsolete_partition(dst, self.conf.retention_period, self.conf.period)):
             self.ignored_tables.add(dst)
             return
         if skytools.exists_table(curs, dst):
@@ -906,20 +906,20 @@ class Dispatcher (ShardHandler):
         self.log.info("Created table: %s", dst)
 
         if self.conf.retention_period:
-            dropped = self.drop_obsolete_partitions (self.dest_table, self.conf.retention_period, self.conf.period)
+            dropped = self.drop_obsolete_partitions(self.dest_table, self.conf.retention_period, self.conf.period)
             if self.conf.ignore_old_events and dropped:
                 for tbl in dropped:
                     self.ignored_tables.add(tbl)
                     if tbl in self.row_handler.table_map:
                         del self.row_handler.table_map[tbl]
 
-    def drop_obsolete_partitions (self, parent_table, retention_period, partition_period):
+    def drop_obsolete_partitions(self, parent_table, retention_period, partition_period):
         """ Drop obsolete partitions of partition-by-date parent table.
         """
         curs = self.dst_curs
         func = RETENTION_FUNC
         args = [parent_table, retention_period, partition_period]
-        sql = "select " + func + " (%s, %s, %s)"
+        sql = "select " + func + "(%s, %s, %s)"
         self.log.debug("func: %s, args: %s", func, args)
         curs.execute(sql, args)
         res = [row[0] for row in curs.fetchall()]
@@ -927,13 +927,13 @@ class Dispatcher (ShardHandler):
             self.log.info("Dropped tables: %s", ", ".join(res))
         return res
 
-    def is_obsolete_partition (self, partition_table, retention_period, partition_period):
+    def is_obsolete_partition(self, partition_table, retention_period, partition_period):
         """ Test partition name of partition-by-date parent table.
         """
         curs = self.dst_curs
         func = "londiste.is_obsolete_partition"
         args = [partition_table, retention_period, partition_period]
-        sql = "select " + func + " (%s, %s, %s)"
+        sql = "select " + func + "(%s, %s, %s)"
         self.log.debug("func: %s, args: %s", func, args)
         curs.execute(sql, args)
         res = curs.fetchone()[0]
@@ -951,7 +951,7 @@ class Dispatcher (ShardHandler):
         copied
         """
         _src_cols = _dst_cols = column_list
-        condition = self.get_copy_condition (src_curs, dst_curs)
+        condition = self.get_copy_condition(src_curs, dst_curs)
 
         if self.conf.skip_fields:
             _src_cols = [col for col in column_list
@@ -970,9 +970,9 @@ class Dispatcher (ShardHandler):
 
         return skytools.full_copy(tablename, src_curs, dst_curs,
                                   _src_cols, condition,
-                                  dst_tablename = self.dest_table,
-                                  dst_column_list = _dst_cols,
-                                  write_hook = _write_hook)
+                                  dst_tablename=self.dest_table,
+                                  dst_column_list=_dst_cols,
+                                  write_hook=_write_hook)
 
 
 # add arguments' description to handler's docstring
@@ -1005,29 +1005,33 @@ handler_args = partial(handler_args, cls=Dispatcher)
 #------------------------------------------------------------------------------
 
 
-LOAD = { '': { 'load_mode': 'direct' },
-         'bulk': { 'load_mode': 'bulk' }
+LOAD = {
+    '': {'load_mode': 'direct'},
+    'bulk': {'load_mode': 'bulk'}
 }
-PERIOD = { 'hourly': { 'period': 'hour' },
-           'daily' : { 'period': 'day' },
-           'monthly': { 'period': 'month' },
-           'yearly': { 'period': 'year' },
+PERIOD = {
+    'hourly': {'period': 'hour'},
+    'daily' : {'period': 'day'},
+    'monthly': {'period': 'month'},
+    'yearly': {'period': 'year'},
 }
-MODE = { 'event': { 'part_mode': 'event_time' },
-         'batch': { 'part_mode': 'batch_time' },
-         'field': { 'part_mode': 'date_field' },
-         'time': { 'part_mode': 'current_time' },
+MODE = {
+    'event': {'part_mode': 'event_time'},
+    'batch': {'part_mode': 'batch_time'},
+    'field': {'part_mode': 'date_field'},
+    'time': {'part_mode': 'current_time'},
 }
-BASE = { 'table_mode': 'part',
-         'row_mode': 'keep_latest',
+BASE = {
+    'table_mode': 'part',
+    'row_mode': 'keep_latest',
 }
 
 def set_handler_doc(cls, handler_defs):
     """ generate handler docstring """
     cls.__doc__ = "Custom dispatch handler with default args.\n\n" \
                   "Parameters:\n"
-    for k,v in handler_defs.items():
-        cls.__doc__ += "  %s = %s\n" % (k,v)
+    for k, v in handler_defs.items():
+        cls.__doc__ += "  %s = %s\n" % (k, v)
 
 def _generate_handlers():
     for load, load_dict in LOAD.items():
@@ -1051,9 +1055,9 @@ _generate_handlers()
 @handler_args('bulk_direct')
 def bulk_direct_handler(args):
     return update(args, {'load_mode': 'bulk', 'table_mode': 'direct'})
-set_handler_doc (__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': 'direct'})
+set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': 'direct'})
 
 @handler_args('direct')
 def direct_handler(args):
     return update(args, {'load_mode': 'direct', 'table_mode': 'direct'})
-set_handler_doc (__londiste_handlers__[-1], {'load_mode': 'direct', 'table_mode': 'direct'})
+set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'direct', 'table_mode': 'direct'})

@@ -106,7 +106,7 @@ class Repairer(Syncer):
         cmdline.append('-o')
         cmdline.append(dst)
         cmdline.append(src)
-        p = subprocess.Popen(cmdline, env = xenv)
+        p = subprocess.Popen(cmdline, env=xenv)
         if p.wait() != 0:
             raise Exception('sort failed')
 

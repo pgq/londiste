@@ -80,10 +80,10 @@ class BaseHandler(object):
         self.fq_table_name = skytools.quote_fqident(self.table_name)
         self.fq_dest_table = skytools.quote_fqident(self.dest_table)
         self.args = args
-        self._check_args (args)
+        self._check_args(args)
         self.conf = self.get_config()
 
-    def _parse_args_from_doc (self):
+    def _parse_args_from_doc(self):
         doc = self.__doc__ or ""
         params_descr = []
         params_found = False
@@ -92,7 +92,7 @@ class BaseHandler(object):
             if params_found:
                 if ln == "":
                     break
-                descr = ln.split (None, 1)
+                descr = ln.split(None, 1)
                 name, sep, ___rest = descr[0].partition('=')
                 if sep:
                     expr = descr[0].rstrip(":")
@@ -100,12 +100,12 @@ class BaseHandler(object):
                 else:
                     name, expr, text = params_descr.pop()
                     text += "\n" + ln
-                params_descr.append ((name, expr, text))
+                params_descr.append((name, expr, text))
             elif ln == "Parameters:":
                 params_found = True
         return params_descr
 
-    def _check_args (self, args):
+    def _check_args(self, args):
         self.valid_arg_names = []
         passed_arg_names = args.keys() if args else []
         args_from_doc = self._parse_args_from_doc()
@@ -113,9 +113,9 @@ class BaseHandler(object):
             self.valid_arg_names = list(zip(*args_from_doc)[0])
         invalid = set(passed_arg_names) - set(self.valid_arg_names)
         if invalid:
-            raise ValueError ("Invalid handler argument: %s" % list(invalid))
+            raise ValueError("Invalid handler argument: %s" % list(invalid))
 
-    def get_arg (self, name, value_list, default = None):
+    def get_arg(self, name, value_list, default=None):
         """ Return arg value or default; also check if value allowed. """
         default = default or value_list[0]
         val = type(default)(self.args.get(name, default))
@@ -123,7 +123,7 @@ class BaseHandler(object):
             raise Exception('Bad argument %s value %r' % (name, val))
         return val
 
-    def get_config (self):
+    def get_config(self):
         """ Process args dict (into handler config). """
         conf = skytools.dbdict()
         return conf
@@ -167,7 +167,7 @@ class BaseHandler(object):
         condition = self.get_copy_condition(src_curs, dst_curs)
         return skytools.full_copy(src_tablename, src_curs, dst_curs,
                                   column_list, condition,
-                                  dst_tablename = self.dest_table)
+                                  dst_tablename=self.dest_table)
 
     def needs_table(self):
         """Does the handler need the table to exist on destination."""
@@ -200,7 +200,7 @@ class TableHandler(BaseHandler):
         else:
             self.encoding_validator = None
 
-    def get_config (self):
+    def get_config(self):
         conf = BaseHandler.get_config(self)
         conf.ignore_truncate = self.get_arg('ignore_truncate', [0, 1], 0)
         return conf
@@ -257,8 +257,8 @@ class TableHandler(BaseHandler):
         condition = self.get_copy_condition(src_curs, dst_curs)
         return skytools.full_copy(src_tablename, src_curs, dst_curs,
                                   column_list, condition,
-                                  dst_tablename = self.dest_table,
-                                  write_hook = _write_hook)
+                                  dst_tablename=self.dest_table,
+                                  write_hook=_write_hook)
 
 
 #------------------------------------------------------------------------------
@@ -266,7 +266,7 @@ class TableHandler(BaseHandler):
 #------------------------------------------------------------------------------
 
 class EncodingValidator(object):
-    def __init__(self, log, encoding = 'utf-8', replacement = u'\ufffd'):
+    def __init__(self, log, encoding='utf-8', replacement=u'\ufffd'):
         """validates the correctness of given encoding. when data contains
         illegal symbols, replaces them with <replacement> and logs the
         incident

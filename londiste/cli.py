@@ -89,43 +89,43 @@ class Londiste(skytools.DBScript):
 
         g = optparse.OptionGroup(p, "options for cascading")
         g.add_option("--provider",
-                help = "init: upstream node temp connect string")
-        g.add_option("--target", metavar = "NODE",
-                help = "switchover: target node")
-        g.add_option("--merge", metavar = "QUEUE",
-                help = "create-leaf: combined queue name")
-        g.add_option("--dead", metavar = "NODE", action = 'append',
-                help = "cascade: assume node is dead")
-        g.add_option("--dead-root", action = 'store_true',
-                help = "takeover: old node was root")
-        g.add_option("--dead-branch", action = 'store_true',
-                help = "takeover: old node was branch")
-        g.add_option("--sync-watermark", metavar = "NODES",
-                help = "create-branch: list of node names to sync wm with")
+                help="init: upstream node temp connect string")
+        g.add_option("--target", metavar="NODE",
+                help="switchover: target node")
+        g.add_option("--merge", metavar="QUEUE",
+                help="create-leaf: combined queue name")
+        g.add_option("--dead", metavar="NODE", action='append',
+                help="cascade: assume node is dead")
+        g.add_option("--dead-root", action='store_true',
+                help="takeover: old node was root")
+        g.add_option("--dead-branch", action='store_true',
+                help="takeover: old node was branch")
+        g.add_option("--sync-watermark", metavar="NODES",
+                help="create-branch: list of node names to sync wm with")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "repair queue position")
-        g.add_option("--rewind", action = "store_true",
-                help = "change queue position according to destination")
-        g.add_option("--reset", action = "store_true",
-                help = "reset queue position on destination side")
+        g.add_option("--rewind", action="store_true",
+                help="change queue position according to destination")
+        g.add_option("--reset", action="store_true",
+                help="reset queue position on destination side")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "options for add")
         g.add_option("--all", action="store_true",
-                help = "add: include all possible tables")
+                help="add: include all possible tables")
         g.add_option("--wait-sync", action="store_true",
-                help = "add: wait until all tables are in sync")
-        g.add_option("--dest-table", metavar = "NAME",
-                help = "add: redirect changes to different table")
+                help="add: wait until all tables are in sync")
+        g.add_option("--dest-table", metavar="NAME",
+                help="add: redirect changes to different table")
         g.add_option("--expect-sync", action="store_true", dest="expect_sync",
-                help = "add: no copy needed", default=False)
+                help="add: no copy needed", default=False)
         g.add_option("--skip-truncate", action="store_true", dest="skip_truncate",
-                help = "add: keep old data", default=False)
+                help="add: keep old data", default=False)
         g.add_option("--create", action="store_true",
-                help = "add: create table/seq if not exist, with minimal schema")
+                help="add: create table/seq if not exist, with minimal schema")
         g.add_option("--create-full", action="store_true",
-                help = "add: create table/seq if not exist, with full schema")
+                help="add: create table/seq if not exist, with full schema")
         g.add_option("--trigger-flags",
                 help="add: set trigger flags (BAIUDLQ)")
         g.add_option("--trigger-arg", action="append",
@@ -137,14 +137,14 @@ class Londiste(skytools.DBScript):
         g.add_option("--handler-arg", action="append",
                 help="add: argument to custom handler")
         g.add_option("--find-copy-node", dest="find_copy_node", action="store_true",
-                help = "add: walk upstream to find node to copy from")
-        g.add_option("--copy-node", metavar = "NODE", dest="copy_node",
-                help = "add: use NODE as source for initial COPY")
+                help="add: walk upstream to find node to copy from")
+        g.add_option("--copy-node", metavar="NODE", dest="copy_node",
+                help="add: use NODE as source for initial COPY")
         g.add_option("--merge-all", action="store_true",
                 help="merge tables from all source queues", default=False)
         g.add_option("--no-merge", action="store_true",
                 help="don't merge tables from source queues", default=False)
-        g.add_option("--max-parallel-copy", metavar = "NUM", type = "int",
+        g.add_option("--max-parallel-copy", metavar="NUM", type="int",
                 help="max number of parallel copy processes")
         g.add_option("--skip-non-existing", action="store_true",
                 help="add: skip object that does not exist")
@@ -152,8 +152,8 @@ class Londiste(skytools.DBScript):
 
         g = optparse.OptionGroup(p, "other options")
         g.add_option("--force", action="store_true",
-                help = "add: ignore table differences, repair: ignore lag")
-        g.add_option("--apply", action = "store_true",
+                help="add: ignore table differences, repair: ignore lag")
+        g.add_option("--apply", action="store_true",
                 help="repair: apply fixes automatically")
         g.add_option("--count-only", action="store_true",
                 help="compare: just count rows, do not compare data")
