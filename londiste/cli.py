@@ -12,7 +12,7 @@ import pgq.cascade.admin
 from londiste.playback import Replicator
 from londiste.repair import Repairer
 from londiste.compare import Comparator
-from londiste.setup import LondisteSetup
+from londiste.admin import LondisteSetup
 from londiste.table_copy import CopyTable
 
 command_usage = pgq.cascade.admin.command_usage + """

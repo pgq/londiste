@@ -3,7 +3,10 @@
 
 from __future__ import division, absolute_import, print_function
 
-import sys, os, re, skytools
+import sys
+import os
+import re
+import skytools
 
 from pgq.cascade.admin import CascadeAdmin
 from londiste.exec_attrs import ExecAttrs
@@ -49,19 +52,19 @@ class LondisteSetup(CascadeAdmin):
 
         p = super(LondisteSetup, self).init_optparse(parser)
         p.add_option("--expect-sync", action="store_true", dest="expect_sync",
-                help = "no copy needed", default=False)
+                help="no copy needed", default=False)
         p.add_option("--skip-truncate", action="store_true", dest="skip_truncate",
-                help = "do not delete old data", default=False)
+                help="do not delete old data", default=False)
         p.add_option("--find-copy-node", action="store_true", dest="find_copy_node",
-                help = "add: find table source for copy by walking upwards")
-        p.add_option("--copy-node", metavar = "NODE", dest="copy_node",
-                help = "add: use NODE as source for initial copy")
+                help="add: find table source for copy by walking upwards")
+        p.add_option("--copy-node", metavar="NODE", dest="copy_node",
+                help="add: use NODE as source for initial copy")
         p.add_option("--force", action="store_true",
                 help="force", default=False)
         p.add_option("--all", action="store_true",
                 help="include all tables", default=False)
         p.add_option("--wait-sync", action="store_true",
-                help = "add: wait until all tables are in sync"),
+                help="add: wait until all tables are in sync")
         p.add_option("--create", action="store_true",
                 help="create, minimal", default=False)
         p.add_option("--create-full", action="store_true",
@@ -80,9 +83,9 @@ class LondisteSetup(CascadeAdmin):
                 help="merge tables from all source queues", default=False)
         p.add_option("--no-merge", action="store_true",
                 help="do not merge tables from source queues", default=False)
-        p.add_option("--max-parallel-copy", metavar = "NUM", type = "int",
+        p.add_option("--max-parallel-copy", metavar="NUM", type="int",
                 help="max number of parallel copy processes")
-        p.add_option("--dest-table", metavar = "NAME",
+        p.add_option("--dest-table", metavar="NAME",
                 help="add: name for actual table")
         p.add_option("--skip-non-existing", action="store_true",
                 help="add: skip object that does not exist")
@@ -160,7 +163,7 @@ class LondisteSetup(CascadeAdmin):
         # search for usable copy node if requested & needed
         if (self.options.find_copy_node and create_flags != 0
                 and needs_tbl and not self.is_root()):
-            src_name, src_loc, _ = find_copy_source(self, self.queue_name, args, None, self.provider_location)
+            src_name, _, _ = find_copy_source(self, self.queue_name, args, None, self.provider_location)
             self.options.copy_node = src_name
             self.close_database('provider_db')
             src_db = self.get_provider_db()
@@ -234,7 +237,7 @@ class LondisteSetup(CascadeAdmin):
                 newname = None
                 if src_dest_table != dest_table:
                     newname = dest_table
-                s.create(dst_curs, create_flags, log = self.log, new_table_name = newname)
+                s.create(dst_curs, create_flags, log=self.log, new_table_name=newname)
         elif not tbl_exists and self.options.skip_non_existing:
             self.log.warning('Table %s does not exist on local node, skipping', desc)
             return
@@ -420,7 +423,7 @@ class LondisteSetup(CascadeAdmin):
                     return
                 s = skytools.SeqStruct(src_curs, seq)
                 src_db.commit()
-                s.create(dst_curs, create_flags, log = self.log)
+                s.create(dst_curs, create_flags, log=self.log)
         elif not seq_exists:
             if self.options.skip_non_existing:
                 self.log.warning('Sequence "%s" missing on local node, skipping', seq)
@@ -491,16 +494,16 @@ class LondisteSetup(CascadeAdmin):
             for row in cur.fetchall():
                 if row['table_name'] not in args:
                     continue
-                attrs = skytools.db_urldecode (row['table_attrs'] or '')
+                attrs = skytools.db_urldecode(row['table_attrs'] or '')
 
                 if self.options.find_copy_node:
                     attrs['copy_node'] = '?'
                 elif self.options.copy_node:
                     attrs['copy_node'] = self.options.copy_node
 
-                attrs = skytools.db_urlencode (attrs)
-                q = "select * from londiste.local_set_table_attrs (%s, %s, %s)"
-                self.exec_cmd(db, q, [self.set_name, row['table_name'], attrs])
+                s_attrs = skytools.db_urlencode(attrs)
+                q = "select * from londiste.local_set_table_attrs(%s, %s, %s)"
+                self.exec_cmd(db, q, [self.set_name, row['table_name'], s_attrs])
 
         q = "select * from londiste.local_set_table_state(%s, %s, null, null)"
         self.exec_cmd_many(db, q, [self.set_name], args)
@@ -516,7 +519,7 @@ class LondisteSetup(CascadeAdmin):
                 return skytools.db_urldecode(a)
             return ''
         self.display_table(db, "Tables on node", q, [self.set_name],
-                           fieldfmt = {'table_attrs': show_attr})
+                           fieldfmt={'table_attrs': show_attr})
 
     def cmd_seqs(self):
         """Show attached seqs."""
@@ -568,9 +571,9 @@ class LondisteSetup(CascadeAdmin):
         for fn in files:
             fname = os.path.basename(fn)
             sql = open(fn, "r").read()
-            attrs = ExecAttrs(sql = sql)
+            attrs = ExecAttrs(sql=sql)
             q = "select * from londiste.execute_start(%s, %s, %s, true, %s)"
-            res = self.exec_cmd(db, q, [self.queue_name, fname, sql, attrs.to_urlenc()], commit = False)
+            res = self.exec_cmd(db, q, [self.queue_name, fname, sql, attrs.to_urlenc()], commit=False)
             ret = res[0]['ret_code']
             if ret > 200:
                 self.log.warning("Skipping execution of '%s'", fname)
@@ -583,7 +586,7 @@ class LondisteSetup(CascadeAdmin):
             else:
                 self.log.info("%s: This SQL does not need to run on this node.", fname)
             q = "select * from londiste.execute_finish(%s, %s)"
-            self.exec_cmd(db, q, [self.queue_name, fname], commit = False)
+            self.exec_cmd(db, q, [self.queue_name, fname], commit=False)
         db.commit()
 
     def get_provider_db(self):
@@ -600,10 +603,10 @@ class LondisteSetup(CascadeAdmin):
         if not self.provider_location:
             db = self.get_database('db')
             q = 'select * from pgq_node.get_node_info(%s)'
-            res = self.exec_cmd(db, q, [self.queue_name], quiet = True)
+            res = self.exec_cmd(db, q, [self.queue_name], quiet=True)
             self.provider_location = res[0]['provider_location']
 
-        return self.get_database('provider_db', connstr = self.provider_location, profile = 'remote')
+        return self.get_database('provider_db', connstr=self.provider_location, profile='remote')
 
     def expand_arg_list(self, db, kind, existing, args, needs_tbl=True):
         curs = db.cursor()
@@ -776,7 +779,7 @@ class LondisteSetup(CascadeAdmin):
             bak = ev.ev_extra3
             tblkey = 'table: %s' % tbl
             if tblkey not in stats:
-                stats[tblkey] = [0,0,0,ROLLBACK]
+                stats[tblkey] = [0, 0, 0, ROLLBACK]
             tinfo = stats[tblkey]
             if op == 'I':
                 tinfo[0] += 1
