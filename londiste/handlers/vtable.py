@@ -3,6 +3,8 @@
 Hack to get local=t for a table, but without processing any events.
 """
 
+from __future__ import division, absolute_import, print_function
+
 from londiste.handler import BaseHandler
 
 __all__ = ['VirtualTableHandler', 'FakeLocalHandler']

@@ -85,6 +85,8 @@ alter table other."Bar";
 alter table "Other"."Foo";
 """
 
+from __future__ import division, absolute_import, print_function
+
 import skytools
 
 META_PREFIX = "--*--"

@@ -1,7 +1,7 @@
 
 """Replication on top of PgQ."""
 
-__pychecker__ = 'no-miximport'
+from __future__ import division, absolute_import, print_function
 
 import londiste.playback
 import londiste.compare

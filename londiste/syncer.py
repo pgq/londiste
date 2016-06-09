@@ -1,6 +1,7 @@
-
 """Catch moment when tables are in sync on master and slave.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import sys, time, skytools
 from londiste.handler import build_handler, load_handler_modules

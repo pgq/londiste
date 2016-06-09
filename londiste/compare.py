@@ -1,9 +1,9 @@
-#! /usr/bin/env python
-
 """Compares tables in replication set.
 
 Currently just does count(1) on both sides.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import sys, skytools
 

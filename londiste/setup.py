@@ -1,7 +1,7 @@
-#! /usr/bin/env python
-
 """Londiste setup and sanity checker.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import sys, os, re, skytools
 

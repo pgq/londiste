@@ -22,6 +22,8 @@ Local config:
 
 """
 
+from __future__ import division, absolute_import, print_function
+
 import skytools
 from londiste.handler import TableHandler
 

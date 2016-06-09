@@ -1,9 +1,9 @@
-#! /usr/bin/env python
-
 """Do a full table copy.
 
 For internal usage.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import sys, time, skytools
 

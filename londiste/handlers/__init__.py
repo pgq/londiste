@@ -1,4 +1,8 @@
-# handlers module
+"""Handlers module
+"""
+
+from __future__ import division, absolute_import, print_function
+
 import new
 import sys
 

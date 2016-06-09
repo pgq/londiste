@@ -1,8 +1,9 @@
-
 """Repair data on subscriber.
 
 Walks tables by primary key and searches for missing inserts/updates/deletes.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import sys, os, skytools, subprocess
 

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# encoding: utf-8
 """
 Handler for replica with multiple master nodes.
 
@@ -8,6 +6,8 @@ expect-sync option.
 
 NB! needs merge_on_time function to be compiled on database first.
 """
+
+from __future__ import division, absolute_import, print_function
 
 import skytools
 from londiste.handlers.applyfn import ApplyFuncHandler
