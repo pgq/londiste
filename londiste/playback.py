@@ -722,7 +722,7 @@ class Replicator(CascadedWorker):
             seq_map[row['seq_name']] = row['seq_name']
 
         tbl_map = {}
-        for tbl, t in self.table_map.items():
+        for t in self.table_map.values():
             tbl_map[t.name] = t.dest_table
 
         q = "select * from londiste.execute_start(%s, %s, %s, false, %s)"

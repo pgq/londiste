@@ -79,7 +79,6 @@ class Syncer(skytools.DBScript):
         """Before locking anything check if consumer is working ok."""
 
         setup_curs = setup_db.cursor()
-        dst_curs = dst_db.cursor()
         c = 0
         while 1:
             q = "select * from pgq_node.get_consumer_state(%s, %s)"
@@ -185,7 +184,7 @@ class Syncer(skytools.DBScript):
         # provider node info
         self.provider_info = self.get_provider_info(setup_curs)
 
-        src_tables, ignore = self.get_tables(src_db)
+        src_tables, _ = self.get_tables(src_db)
         if not tbl in src_tables:
             self.log.warning('Table not available on provider: %s', tbl)
             return
@@ -214,7 +213,7 @@ class Syncer(skytools.DBScript):
         if not wait:
             return cur_pos
 
-        start = time.time()
+        #start = time.time()
         while 1:
             time.sleep(0.5)
             setup_curs.execute(q, [self.queue_name])
@@ -224,7 +223,7 @@ class Syncer(skytools.DBScript):
                 return res[0]
 
             # dont loop more than 10 secs
-            dur = time.time() - start
+            #dur = time.time() - start
             #if dur > 10 and not self.options.force:
             #    raise Exception("Ticker seems dead")
 
@@ -234,7 +233,6 @@ class Syncer(skytools.DBScript):
         src_tbl = t1.dest_table
         dst_tbl = t2.dest_table
 
-        lock_curs = lock_db.cursor()
         src_curs = src_db.cursor()
         dst_curs = dst_db.cursor()
 
@@ -320,7 +318,6 @@ class Syncer(skytools.DBScript):
         lock_time = time.time()
         self.old_worker_paused = self.pause_consumer(setup_curs, self.provider_info['worker_name'])
 
-        lock_curs = lock_db.cursor()
         self.log.info('Syncing %s', dst_tbl)
 
         # consumer must get further than this tick
@@ -355,7 +352,6 @@ class Syncer(skytools.DBScript):
         raise Exception('process_sync not implemented')
 
     def get_provider_location(self, dst_db):
-        curs = dst_db.cursor()
         q = "select * from pgq_node.get_node_info(%s)"
         rows = self.exec_cmd(dst_db, q, [self.queue_name])
         return (rows[0]['provider_node'], rows[0]['provider_location'])

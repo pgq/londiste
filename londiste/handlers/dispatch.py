@@ -1039,6 +1039,7 @@ for load, load_dict in LOAD.items():
                 @handler_args(handler_name)
                 def handler_func(args):
                     return update(args, default)
+                assert handler_func   # avoid 'unused' warning, decorator registers it
             create_handler()
             hcls = __londiste_handlers__[-1] # it was just added
             defs = update(mode_dict, period_dict, load_dict, BASE)

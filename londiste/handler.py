@@ -93,7 +93,7 @@ class BaseHandler(object):
                 if ln == "":
                     break
                 descr = ln.split (None, 1)
-                name, sep, rest = descr[0].partition('=')
+                name, sep, ___rest = descr[0].partition('=')
                 if sep:
                     expr = descr[0].rstrip(":")
                     text = descr[1].lstrip(":- \t")

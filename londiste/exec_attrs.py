@@ -240,9 +240,7 @@ class ExecAttrs(object):
 
         cur_key = None
         cur_continued = False
-        lineno = 1
-        for nr, ln in enumerate(sql.splitlines()):
-            lineno = nr+1
+        for ln in sql.splitlines():
 
             # skip empty lines
             ln = ln.strip()
