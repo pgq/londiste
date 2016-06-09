@@ -13,7 +13,6 @@ setup(
     maintainer_email = "markokr@gmail.com",
     packages = ['londiste', 'londiste.handlers'],
     install_requires = ['pgq', 'skytools', 'psycopg2'],
-    scripts = ['londiste.py'],
     entry_points = {
         'console_scripts': [
             'londiste = londiste.cli:main',
