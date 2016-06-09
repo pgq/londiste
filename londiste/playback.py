@@ -943,7 +943,7 @@ class Replicator(CascadedWorker):
         dst_curs.execute(q, [self.set_name])
         fkey_list = dst_curs.fetchall()
         for row in fkey_list:
-            self.log.info('Creating fkey: %(fkey_name)s (%(from_table)s --> %(to_table)s)' % row)
+            self.log.info('Creating fkey: %(fkey_name)s (%(from_table)s --> %(to_table)s)', row)
             q2 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s)"
             dst_curs.execute(q2, row)
             dst_db.commit()
@@ -959,7 +959,7 @@ class Replicator(CascadedWorker):
         dst_curs.execute(q, [table_name])
         fkey_list = dst_curs.fetchall()
         for row in fkey_list:
-            self.log.info('Dropping fkey: %s' % row['fkey_name'])
+            self.log.info('Dropping fkey: %s', row['fkey_name'])
             q2 = "select londiste.drop_table_fkey(%(from_table)s, %(fkey_name)s)"
             dst_curs.execute(q2, row)
             dst_db.commit()

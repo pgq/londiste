@@ -20,7 +20,6 @@ pylint:
     - cell-var-from-loop
     - expression-not-assigned
     - line-too-long
-    - logging-not-lazy
     - multiple-statements
     - no-init
     - pointless-string-statement
