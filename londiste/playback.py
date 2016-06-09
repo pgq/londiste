@@ -9,7 +9,7 @@ import skytools
 
 from pgq.cascade.worker import CascadedWorker
 
-from londiste.handler import *
+from londiste.handler import load_handler_modules, build_handler
 from londiste.exec_attrs import ExecAttrs
 
 __all__ = ['Replicator', 'TableState',

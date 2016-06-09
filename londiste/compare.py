@@ -8,9 +8,9 @@ from __future__ import division, absolute_import, print_function
 import sys
 import skytools
 
-__all__ = ['Comparator']
-
 from londiste.syncer import Syncer
+
+__all__ = ['Comparator']
 
 class Comparator(Syncer):
     """Simple checker based on Syncer.

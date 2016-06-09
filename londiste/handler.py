@@ -6,6 +6,11 @@ Per-table decision how to create trigger, copy data and apply events.
 
 from __future__ import division, absolute_import, print_function
 
+import sys
+import logging
+import skytools
+import londiste.handlers
+
 _ = """
 
 -- redirect & create table
@@ -31,11 +36,6 @@ plain londiste:
 - replay: add to sql queue
 
 """
-
-import sys
-import logging
-import skytools
-import londiste.handlers
 
 __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
            'load_handler_modules', 'create_handler_string']

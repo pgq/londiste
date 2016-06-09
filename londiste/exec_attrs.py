@@ -363,7 +363,3 @@ class ExecAttrs(object):
                 sql = sql.replace(repname, qdest)
         return sql
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-

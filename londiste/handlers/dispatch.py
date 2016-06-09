@@ -161,18 +161,14 @@ creating or coping initial data to destination table.  --expect-sync and
 --skip-truncate should be used and --create switch is to be avoided.
 """
 
-import codecs
 import datetime
 import re
-import sys
 from functools import partial
 
 import skytools
 from skytools import quote_ident, quote_fqident, UsageError
-from skytools.dbstruct import *
-from skytools.utf8 import safe_utf8_decode
+from skytools.dbstruct import TableStruct, T_ALL
 
-from londiste.handler import EncodingValidator
 from londiste.handlers import handler_args, update
 from londiste.handlers.shard import ShardHandler
 

@@ -25,8 +25,9 @@ Default is 0.
 
 import skytools
 
-from londiste.handler import BaseHandler, RowCache
 from skytools import quote_ident, quote_fqident
+
+from londiste.handler import BaseHandler
 
 __all__ = ['BulkLoader']
 

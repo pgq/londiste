@@ -15,28 +15,22 @@ pylint:
     dummy-variables-rgx: _$|dummy|___
 
   disable:
-    - bad-whitespace
-    - unused-variable
     - attribute-defined-outside-init
-    - redefined-builtin
+    - bad-whitespace
     - cell-var-from-loop
-    - superfluous-parens
-    - ungrouped-imports
-    - unneeded-not
-    - unused-import
-    - unused-wildcard-import
-    - redefined-outer-name
-    - no-init
-    - wildcard-import
-    - multiple-statements
-    - logging-not-lazy
     - expression-not-assigned
-    - wrong-import-order
-    - wrong-import-position
-    - pointless-string-statement
-    - too-many-return-statements
-    - using-constant-test
     - line-too-long
+    - logging-not-lazy
+    - multiple-statements
+    - no-init
+    - pointless-string-statement
+    - redefined-builtin
+    - redefined-outer-name
+    - superfluous-parens
+    - too-many-return-statements
+    - unneeded-not
+    - unused-variable
+    - using-constant-test
 
     # register_consumer
     - arguments-differ

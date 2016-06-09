@@ -9,9 +9,9 @@ import sys
 import time
 import skytools
 
+from skytools.dbstruct import TableStruct, T_CONSTRAINT, T_INDEX, T_RULE, T_PARENT
 from londiste.util import find_copy_source
-from skytools.dbstruct import *
-from londiste.playback import *
+from londiste.playback import Replicator, TABLE_OK, TABLE_CATCHING_UP
 
 __all__ = ['CopyTable']
 
