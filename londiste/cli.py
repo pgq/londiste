@@ -163,6 +163,10 @@ class Londiste(skytools.DBScript):
 
         return p
 
-if __name__ == '__main__':
+def main():
     script = Londiste(sys.argv[1:])
     script.start()
+
+if __name__ == '__main__':
+    main()
+
