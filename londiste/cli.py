@@ -10,7 +10,12 @@ import optparse
 
 import skytools
 import pgq.cascade.admin
-import londiste
+
+from londiste.playback import Replicator
+from londiste.repair import Repairer
+from londiste.compare import Comparator
+from londiste.setup import LondisteSetup
+from londiste.table_copy import CopyTable
 
 command_usage = pgq.cascade.admin.command_usage + """
 Replication Daemon:
@@ -43,15 +48,15 @@ Internal Commands:
 cmd_handlers = (
     (('create-root', 'create-branch', 'create-leaf', 'members', 'tag-dead', 'tag-alive',
       'change-provider', 'rename-node', 'status', 'node-status', 'pause', 'resume', 'node-info',
-      'drop-node', 'takeover', 'resurrect'), londiste.LondisteSetup),
+      'drop-node', 'takeover', 'resurrect'), LondisteSetup),
     (('add-table', 'remove-table', 'change-handler', 'add-seq', 'remove-seq', 'tables', 'seqs',
       'missing', 'resync', 'wait-sync', 'wait-root', 'wait-provider',
-      'check', 'fkeys', 'execute'), londiste.LondisteSetup),
-    (('show-handlers',), londiste.LondisteSetup),
-    (('worker',), londiste.Replicator),
-    (('compare',), londiste.Comparator),
-    (('repair',), londiste.Repairer),
-    (('copy',), londiste.CopyTable),
+      'check', 'fkeys', 'execute'), LondisteSetup),
+    (('show-handlers',), LondisteSetup),
+    (('worker',), Replicator),
+    (('compare',), Comparator),
+    (('repair',), Repairer),
+    (('copy',), CopyTable),
 )
 
 class Londiste(skytools.DBScript):
@@ -78,7 +83,7 @@ class Londiste(skytools.DBScript):
 
     def print_ini(self):
         """Let the Replicator print the default config."""
-        londiste.Replicator(self.full_args)
+        Replicator(self.full_args)
 
     def init_optparse(self, parser=None):
         p = super(Londiste, self).init_optparse(parser)
