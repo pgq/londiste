@@ -18,8 +18,6 @@ pylint:
     - bad-whitespace
     - too-many-return-statements
 
-    # dispatch bug?
-    - cell-var-from-loop
     # register_consumer
     - arguments-differ
     # optparse

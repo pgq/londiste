@@ -1029,23 +1029,24 @@ def set_handler_doc(cls, handler_defs):
     for k,v in handler_defs.items():
         cls.__doc__ += "  %s = %s\n" % (k,v)
 
-for load, load_dict in LOAD.items():
-    for period, period_dict in PERIOD.items():
-        for mode, mode_dict in MODE.items():
-            # define creator func to keep default dicts in separate context
-            def create_handler():
+def _generate_handlers():
+    for load, load_dict in LOAD.items():
+        for period, period_dict in PERIOD.items():
+            for mode, mode_dict in MODE.items():
                 handler_name = '_'.join(p for p in (load, period, mode) if p)
-                default = update(mode_dict, period_dict, load_dict, BASE)
-                @handler_args(handler_name)
-                def handler_func(args):
-                    return update(args, default)
-                assert handler_func   # avoid 'unused' warning, decorator registers it
-            create_handler()
-            hcls = __londiste_handlers__[-1] # it was just added
-            defs = update(mode_dict, period_dict, load_dict, BASE)
-            set_handler_doc (hcls, defs)
-del (hcls, defs)
+                # define creator func to keep default dicts in separate context
+                def create_handler(_handler_name, _load_dict, _period_dict, _mode_dict):
+                    default = update(_mode_dict, _period_dict, _load_dict, BASE)
+                    @handler_args(_handler_name)
+                    def handler_func(args):
+                        return update(args, default)
+                    assert handler_func   # avoid 'unused' warning, decorator registers it
+                create_handler(handler_name, load_dict, period_dict, mode_dict)
+                hcls = __londiste_handlers__[-1] # it was just added
+                defs = update(mode_dict, period_dict, load_dict, BASE)
+                set_handler_doc(hcls, defs)
 
+_generate_handlers()
 
 @handler_args('bulk_direct')
 def bulk_direct_handler(args):
