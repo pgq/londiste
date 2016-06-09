@@ -28,6 +28,10 @@ class Syncer(skytools.DBScript):
 
     provider_info = None
 
+    downstream_worker_name = None
+
+    old_worker_paused = None
+
     def __init__(self, args):
         """Syncer init."""
         skytools.DBScript.__init__(self, 'londiste3', args)

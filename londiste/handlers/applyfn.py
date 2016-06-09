@@ -15,6 +15,7 @@ class ApplyFuncHandler(BaseHandler):
       func_conf=CONF - database function conf
     """
     handler_name = 'applyfn'
+    cur_tick = None
 
     def prepare_batch(self, batch_info, dst_curs):
         self.cur_tick = batch_info['tick_id']

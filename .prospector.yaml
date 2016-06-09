@@ -15,7 +15,6 @@ pylint:
     dummy-variables-rgx: _$|dummy|___
 
   disable:
-    - attribute-defined-outside-init
     - bad-whitespace
     - redefined-builtin
     - redefined-outer-name

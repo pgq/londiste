@@ -30,6 +30,7 @@ class Repairer(Syncer):
     pkey_list = []
     common_fields = []
     apply_curs = None
+    fq_common_fields = None
 
     def init_optparse(self, p=None):
         """Initialize cmdline switches."""
