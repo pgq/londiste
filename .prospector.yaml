@@ -23,7 +23,6 @@ pylint:
     - redefined-builtin
     - redefined-outer-name
     - too-many-return-statements
-    - unneeded-not
     - unused-variable
     - using-constant-test
 

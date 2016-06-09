@@ -148,7 +148,7 @@ class Syncer(skytools.DBScript):
 
         for tbl in tlist:
             tbl = skytools.fq_name(tbl)
-            if not tbl in dst_tables:
+            if tbl not in dst_tables:
                 self.log.warning('Table not subscribed: %s', tbl)
                 continue
             t2 = dst_tables[tbl]
