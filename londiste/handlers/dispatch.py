@@ -662,7 +662,7 @@ class Dispatcher (ShardHandler):
             if params_found:
                 if ln.startswith("=="):
                     break
-                m = re.match ("^(\w+):$", ln)
+                m = re.match(r"^(\w+):$", ln)
                 if m:
                     name = m.group(1)
                     expr = text = ""

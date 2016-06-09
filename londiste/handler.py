@@ -4,7 +4,10 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
-"""
+from __future__ import division, absolute_import, print_function
+
+_ = """
+
 -- redirect & create table
 partition by batch_time
 partition by date field
@@ -28,8 +31,6 @@ plain londiste:
 - replay: add to sql queue
 
 """
-
-from __future__ import division, absolute_import, print_function
 
 import sys
 import logging

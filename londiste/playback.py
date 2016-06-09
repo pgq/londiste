@@ -143,7 +143,7 @@ class TableState(object):
         """Read state from string."""
 
         state = -1
-        if merge_state == None:
+        if merge_state is None:
             state = TABLE_MISSING
         elif merge_state == "in-copy":
             state = TABLE_IN_COPY
