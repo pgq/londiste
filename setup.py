@@ -3,6 +3,13 @@
 
 from setuptools import setup
 
+# python2: londiste
+# python3: londiste3
+import sys
+CLI_NAME = 'londiste'
+if sys.version_info[0] > 2:
+    CLI_NAME = 'londiste3'
+
 setup(
     name = "londiste",
     description = "Database replication based on PgQ",
@@ -15,7 +22,7 @@ setup(
     install_requires = ['pgq', 'skytools', 'psycopg2'],
     entry_points = {
         'console_scripts': [
-            'londiste = londiste.cli:main',
+            CLI_NAME + ' = londiste.cli:main',
         ],
     },
     classifiers = [

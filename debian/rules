@@ -1,5 +1,9 @@
 #! /usr/bin/make -f
 
+#export DH_VERBOSE = 1
+export DEB_BUILD_OPTIONS = nocheck
+export PYBUILD_NAME = londiste
+
 %:
-	dh $@ --with python2
+	dh $@ --with python2,python3 --buildsystem=pybuild
 
