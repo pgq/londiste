@@ -330,7 +330,7 @@ _handler_map = {
     'londiste': TableHandler,
 }
 
-_handler_list = _handler_map.keys()
+_handler_list = list(_handler_map.keys())
 
 def register_handler_module(modname):
     """Import and module and register handlers."""
