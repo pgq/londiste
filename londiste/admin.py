@@ -26,8 +26,8 @@ class LondisteSetup(CascadeAdmin):
 
     def install_code(self, db):
         self.extra_objs = [
-            skytools.DBSchema("londiste", sql_file='londiste.sql'),
-            skytools.DBFunction("londiste.global_add_table", 2, sql_file='londiste.upgrade_2.1_to_3.1.sql'),
+            skytools.DBSchema("londiste", sql='create extension londiste'),
+            #skytools.DBFunction("londiste.global_add_table", 2, sql_file='londiste.upgrade_2.1_to_3.1.sql'),
         ]
         super(LondisteSetup, self).install_code(db)
 
