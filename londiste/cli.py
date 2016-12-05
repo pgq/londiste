@@ -98,6 +98,8 @@ class Londiste(skytools.DBScript):
                 help="cascade: assume node is dead")
         g.add_option("--dead-root", action='store_true',
                 help="takeover: old node was root")
+        g.add_option("--nocheck", action='store_true',
+                help="create: skip public connect string check")
         g.add_option("--dead-branch", action='store_true',
                 help="takeover: old node was branch")
         g.add_option("--sync-watermark", metavar="NODES",
