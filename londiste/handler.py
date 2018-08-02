@@ -7,6 +7,7 @@ Per-table decision how to create trigger, copy data and apply events.
 from __future__ import division, absolute_import, print_function
 
 import sys
+import json
 import logging
 import skytools
 import londiste.handlers
@@ -213,9 +214,14 @@ class TableHandler(BaseHandler):
             fmt = self.sql_command[ev.type]
             sql = fmt % (fqname, row)
         else:
-            # urlenc event
-            pklist = ev.type[2:].split(',')
-            op = ev.type[0]
+            if ev.type[0] == '{':
+                jtype = json.loads(ev.type)
+                pklist = jtype['pkey']
+                op = jtype['op'][0]
+            else:
+                # urlenc event
+                pklist = ev.type[2:].split(',')
+                op = ev.type[0]
             tbl = self.dest_table
             if op == 'I':
                 sql = skytools.mk_insert_sql(row, tbl, pklist)
@@ -238,6 +244,10 @@ class TableHandler(BaseHandler):
             if self.encoding_validator:
                 return self.encoding_validator.validate_string(ev.data, self.table_name)
             return ev.data
+        elif ev.data[0] == '{':
+            row = json.loads(ev.data)
+            # FIXME: encoding_validator?
+            return row
         else:
             row = skytools.db_urldecode(ev.data)
             if self.encoding_validator:

@@ -626,7 +626,7 @@ class Replicator(CascadedWorker):
 
         if ev.type in ('I', 'U', 'D'):
             self.handle_data_event(ev, dst_curs)
-        elif ev.type[:2] in ('I:', 'U:', 'D:'):
+        elif ev.type[:2] in ('I:', 'U:', 'D:', '{"'):
             self.handle_data_event(ev, dst_curs)
         elif ev.type == "R":
             self.flush_sql(dst_curs)
