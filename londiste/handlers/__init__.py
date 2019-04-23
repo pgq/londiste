@@ -15,6 +15,7 @@ DEFAULT_HANDLERS = [
 
     'londiste.handlers.bulk',
     'londiste.handlers.dispatch',
+    'londiste.handlers.obfuscate',
 ]
 
 
