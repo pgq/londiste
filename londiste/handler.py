@@ -111,7 +111,7 @@ class BaseHandler(object):
         passed_arg_names = args.keys() if args else []
         args_from_doc = self._parse_args_from_doc()
         if args_from_doc:
-            self.valid_arg_names = list(list(zip(*args_from_doc))[0])
+            self.valid_arg_names = [arg[0] for arg in args_from_doc]
         invalid = set(passed_arg_names) - set(self.valid_arg_names)
         if invalid:
             raise ValueError("Invalid handler argument: %s" % list(invalid))
@@ -173,6 +173,12 @@ class BaseHandler(object):
     def needs_table(self):
         """Does the handler need the table to exist on destination."""
         return True
+
+    @classmethod
+    def load_conf(cls, cf):
+        """Load conf."""
+        pass
+
 
 class TableHandler(BaseHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.
@@ -342,7 +348,7 @@ _handler_map = {
 
 _handler_list = list(_handler_map.keys())
 
-def register_handler_module(modname):
+def register_handler_module(modname, cf):
     """Import and module and register handlers."""
     try:
         __import__(modname)
@@ -351,6 +357,7 @@ def register_handler_module(modname):
         return
     m = sys.modules[modname]
     for h in m.__londiste_handlers__:
+        h.load_conf(cf)
         _handler_map[h.handler_name] = h
         _handler_list.append(h.handler_name)
 
@@ -407,7 +414,7 @@ def load_handler_modules(cf):
     lst += cf.getlist('handler_modules', [])
 
     for m in lst:
-        register_handler_module(m)
+        register_handler_module(m, cf)
 
 def show(mods):
     if not mods:
