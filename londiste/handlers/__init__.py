@@ -6,17 +6,7 @@ from __future__ import division, absolute_import, print_function
 import sys
 import functools
 
-DEFAULT_HANDLERS = [
-    'londiste.handlers.qtable',
-    'londiste.handlers.applyfn',
-    'londiste.handlers.shard',
-    'londiste.handlers.multimaster',
-    'londiste.handlers.vtable',
-
-    'londiste.handlers.bulk',
-    'londiste.handlers.dispatch',
-    'londiste.handlers.obfuscate',
-]
+DEFAULT_HANDLERS = []
 
 
 def handler_args(name, cls):
