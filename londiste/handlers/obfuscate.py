@@ -89,7 +89,7 @@ def obf_json(json_data, rule_data, data=None, last_node=None, last_key=None):
             if rule_key == "action":
                 if isinstance(json_data, dict) and not json_data:
                     json_data = None
-                elif rule_value == actions.KEEP:
+                elif rule_value == actions.KEEP or json_data is None:
                     pass
                 elif rule_value == actions.HASH32:
                     json_data = hash32(json_data)
@@ -145,7 +145,7 @@ class Obfuscator(TableHandler):
             obf_col = obf_col_map.get(field, {})
             action = obf_col.get('action', actions.HASH128)
 
-            if action == actions.KEEP:
+            if action == actions.KEEP or value is None:
                 continue
             elif action == actions.HASH32:
                 row[field] = hash32(value)
