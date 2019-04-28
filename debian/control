@@ -10,14 +10,14 @@ X-Python3-Version: >= 3.5
 Package: python-londiste
 Provides: londiste
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}
+Depends: ${misc:Depends}, ${python:Depends}, python-yaml
 Description: Database replication for PostgreSQL based on PgQ
  .
 
 Package: python3-londiste
 Provides: londiste3
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends}, ${python3:Depends}, python3-yaml
 Description: Database replication for PostgreSQL based on PgQ
  .
 
