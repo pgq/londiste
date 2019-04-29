@@ -146,7 +146,7 @@ class Obfuscator(TableHandler):
 
             if action == actions.KEEP:
                 dst[field] = value
-            elif action == action.SKIP:
+            elif action == actions.SKIP:
                 continue
             elif action == actions.HASH32:
                 dst[field] = hash32(value)
