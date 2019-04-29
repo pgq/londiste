@@ -215,6 +215,13 @@ class Obfuscator(TableHandler):
         self._validate(src_tablename, column_list)
         obf_col_map = self.obf_map[src_tablename]
 
+        new_list = []
+        for col in column_list:
+            action = obf_col_map.get(col, {}).get('action', actions.SKIP)
+            if action != actions.SKIP:
+                new_list.append(col)
+        column_list = new_list
+
         def _write_hook(_, data):
             return self.obf_copy_row(data, column_list, obf_col_map)
 
