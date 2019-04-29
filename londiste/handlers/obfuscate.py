@@ -55,18 +55,24 @@ def as_bytes(data):
 def hash32(data):
     """Calculate hash for given data
     """
+    if data is None:
+        return None
     hash_bytes = blake2s(as_bytes(data), digest_size=4, key=_KEY).digest()
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 def hash64(data):
     """Calculate hash for given data
     """
+    if data is None:
+        return None
     hash_bytes = blake2s(as_bytes(data), digest_size=8, key=_KEY).digest()
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 def hash128(data):
     """Calculate hash for given data
     """
+    if data is None:
+        return None
     hash_bytes = blake2s(as_bytes(data), digest_size=16, key=_KEY).digest()
     hash_int = int.from_bytes(hash_bytes, byteorder='big')
 
