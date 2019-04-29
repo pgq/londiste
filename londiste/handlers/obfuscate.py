@@ -33,6 +33,7 @@ class actions:
     HASH32 = 'hash32'
     HASH64 = 'hash64'
     HASH128 = 'hash'
+    SKIP = 'skip'
 
 def as_bytes(data):
     """Convert input string or json value into bytes.
@@ -138,26 +139,26 @@ class Obfuscator(TableHandler):
         self._validate(self.table_name, row.keys())
 
         obf_col_map = self.obf_map[self.table_name]
+        dst = {}
         for field, value in row.items():
-            if value is None:
-                continue
-
             obf_col = obf_col_map.get(field, {})
-            action = obf_col.get('action', actions.HASH128)
+            action = obf_col.get('action', actions.SKIP)
 
-            if action == actions.KEEP or value is None:
+            if action == actions.KEEP:
+                dst[field] = value
+            elif action == action.SKIP:
                 continue
             elif action == actions.HASH32:
-                row[field] = hash32(value)
+                dst[field] = hash32(value)
             elif action == actions.HASH64:
-                row[field] = hash64(value)
+                dst[field] = hash64(value)
             elif action == actions.HASH128:
-                row[field] = hash128(value)
+                dst[field] = hash128(value)
             elif action == actions.JSON:
-                row[field] = self.obf_json(value, obf_col)
+                dst[field] = self.obf_json(value, obf_col)
             else:
                 raise ValueError('Invalid value for action: %s' % action)
-        return row
+        return dst
 
     def obf_json(self, value, obf_col):
         json_data = json.loads(value)
@@ -175,10 +176,12 @@ class Obfuscator(TableHandler):
         obf_vals = []
         for field, value in zip(column_list, vals):
             obf_col = obf_col_map.get(field, {})
-            action = obf_col.get('action', actions.HASH128)
+            action = obf_col.get('action', actions.SKIP)
 
             if action == actions.KEEP:
                 obf_vals.append(value)
+                continue
+            if action == actions.SKIP:
                 continue
             str_val = skytools.unescape_copy(value)
             if str_val is None:
