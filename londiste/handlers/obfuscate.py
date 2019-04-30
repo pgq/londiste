@@ -130,12 +130,6 @@ class Obfuscator(TableHandler):
         if src_tablename not in self.obf_map:
             raise KeyError('Source tabel not in obf_map: %s' % src_tablename)
 
-        obf_column_map = self.obf_map[src_tablename]
-        for column in column_list:
-            if column not in obf_column_map:
-                self.log.warning(
-                    'Column (%s) of table (%s) not in obf_map', column, src_tablename)
-
     def parse_row_data(self, ev):
         """Extract row data from event, with optional encoding fixes.
 
