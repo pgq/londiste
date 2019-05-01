@@ -1,20 +1,16 @@
-"""
-Bulk loading into OLAP database.
+"""Handler that uses keyed-hash to obfuscate data.
 
 To use set in londiste.ini:
 
-    handler_modules = londiste.handlers.bulk
+    handler_modules = londiste.handlers.obfuscate
+    obfuscator_map = rules.yaml
+    obfuscator_key = seedForHash
 
 then add table with:
-  londiste3 add-table xx --handler="obfuscate"
-
-or:
-  londiste3 add-table xx --handler="obfuscate" --handler-arg="keep=field1, field2, ..."
-    list of fields whose values are not to be obfuscated
-
-Default is 0.
+  londiste add-table xx --handler="obfuscate"
 
 """
+
 import json
 import uuid
 from hashlib import blake2s
@@ -27,13 +23,12 @@ __all__ = ['Obfuscator']
 
 _KEY = b''
 
-class actions:
-    KEEP = 'keep'
-    JSON = 'json'
-    HASH32 = 'hash32'
-    HASH64 = 'hash64'
-    HASH128 = 'hash'
-    SKIP = 'skip'
+KEEP = 'keep'
+JSON = 'json'
+HASH32 = 'hash32'
+HASH64 = 'hash64'
+HASH128 = 'hash'
+SKIP = 'skip'
 
 def as_bytes(data):
     """Convert input string or json value into bytes.
@@ -53,7 +48,7 @@ def as_bytes(data):
     raise ValueError('Invalid input type for hashing: %s' % type(data))
 
 def hash32(data):
-    """Calculate hash for given data
+    """Returns hash as 32-bit signed int.
     """
     if data is None:
         return None
@@ -61,7 +56,7 @@ def hash32(data):
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 def hash64(data):
-    """Calculate hash for given data
+    """Returns hash as 64-bit signed int.
     """
     if data is None:
         return None
@@ -69,7 +64,7 @@ def hash64(data):
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 def hash128(data):
-    """Calculate hash for given data
+    """Returns hash as 128-bit variant 0 uuid.
     """
     if data is None:
         return None
@@ -83,33 +78,41 @@ def hash128(data):
 
     return str(uuid.UUID(int=hash_int))
 
-def obf_json(json_data, rule_data, data=None, last_node=None, last_key=None):
-    if data is None:
-        data = {}
-    for rule_key, rule_value in rule_data.items():
-        if isinstance(rule_value, dict):
-            node = data.setdefault(rule_key, {})
-            if not isinstance(json_data, dict):
-                json_data = {}
-            obf_json(json_data.get(rule_key, {}), rule_value, node, data, rule_key)
-        else:
-            if rule_key == "action":
-                if isinstance(json_data, dict) and not json_data:
-                    json_data = None
-                elif rule_value == actions.KEEP or json_data is None:
-                    pass
-                elif rule_value == actions.HASH32:
-                    json_data = hash32(json_data)
-                elif rule_value == actions.HASH64:
-                    json_data = hash64(json_data)
-                elif rule_value == actions.HASH128:
-                    json_data = hash128(json_data)
-                else:
-                    raise ValueError('Invalid rule value: %s' % rule_value)
-                last_node[last_key] = json_data
-            else:
-                raise ValueError('Invalid rule key: %s' % rule_key)
-    return data
+def obf_json(json_data, rule_data):
+    """JSON cleanup.
+
+    >>> obf_json({'a': 1, 'b': 2, 'c': 3}, {'a': 'keep', 'b': 'hash'})
+    {'a': 1, 'b': 'da0f3012-9a91-a079-484b-883a64e535df'}
+    >>> obf_json({'a': {'b': {'c': 3}}}, {'a': {}})
+    >>> obf_json({'a': {'b': {'c': 3}}}, {'a': {'b': {'c': 'hash'}}})
+    {'a': {'b': {'c': 'ad8f95d3-1e86-689a-24aa-54dbb60d022e'}}}
+    >>> obf_json({'a': {'b': {'c': 3}}, 'd': []}, {'a': {'b': {'c': 'skip'}}, 'd': 'keep'})
+    {'d': []}
+    """
+    if isinstance(rule_data, dict):
+        if not isinstance(json_data, dict):
+            return None
+        result = {}
+        for rule_key, rule_value in rule_data.items():
+            val = obf_json(json_data.get(rule_key), rule_value)
+            if val is not None:
+                result[rule_key] = val
+        if not result:
+            return None
+        return result
+    elif rule_data == KEEP:
+        return json_data
+    elif rule_data == SKIP:
+        return None
+    elif isinstance(json_data, (dict, list)):
+        return None
+    elif rule_data == HASH32:
+        return hash32(json_data)
+    elif rule_data == HASH64:
+        return hash64(json_data)
+    elif rule_data == HASH128:
+        return hash128(json_data)
+    raise ValueError('Invalid rule value: %r' % rule_data)
 
 class Obfuscator(TableHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.
@@ -120,9 +123,10 @@ class Obfuscator(TableHandler):
     @classmethod
     def load_conf(cls, cf):
         global _KEY
+
+        _KEY = as_bytes(cf.get('obfuscator_key', ''))
         with open(cf.getfile('obfuscator_map'), 'r') as f:
             cls.obf_map = yaml.safe_load(f)
-        _KEY = as_bytes(cf.get('obfuscator_key', ''))
 
     def _validate(self, src_tablename, column_list):
         """Warn if column names in keep list are not in column list
@@ -138,32 +142,34 @@ class Obfuscator(TableHandler):
         row = super(Obfuscator, self).parse_row_data(ev)
         self._validate(self.table_name, row.keys())
 
-        obf_col_map = self.obf_map[self.table_name]
+        rule_data = self.obf_map[self.table_name]
         dst = {}
         for field, value in row.items():
-            obf_col = obf_col_map.get(field, {})
-            action = obf_col.get('action', actions.SKIP)
-
-            if action == actions.KEEP:
+            action = rule_data.get(field, SKIP)
+            if isinstance(action, dict):
+                dst[field] = self.obf_json(value, action)
+            elif action == KEEP:
                 dst[field] = value
-            elif action == actions.SKIP:
+            elif action == SKIP:
                 continue
-            elif action == actions.HASH32:
+            elif action == HASH32:
                 dst[field] = hash32(value)
-            elif action == actions.HASH64:
+            elif action == HASH64:
                 dst[field] = hash64(value)
-            elif action == actions.HASH128:
+            elif action == HASH128:
                 dst[field] = hash128(value)
-            elif action == actions.JSON:
-                dst[field] = self.obf_json(value, obf_col)
             else:
-                raise ValueError('Invalid value for action: %s' % action)
+                raise ValueError('Invalid value for action: %r' % action)
         return dst
 
     def obf_json(self, value, obf_col):
+        if value is None:
+            return None
         json_data = json.loads(value)
         rule_data = obf_col['rules']
         obf_data = obf_json(json_data, rule_data)
+        if obf_data is None:
+            obf_data = {}
         return json.dumps(obf_data)
 
     def obf_copy_row(self, data, column_list, obf_col_map):
@@ -175,29 +181,31 @@ class Obfuscator(TableHandler):
         vals = data.split('\t')
         obf_vals = []
         for field, value in zip(column_list, vals):
-            obf_col = obf_col_map.get(field, {})
-            action = obf_col.get('action', actions.SKIP)
+            action = obf_col_map.get(field, SKIP)
 
-            if action == actions.KEEP:
+            if isinstance(action, dict):
+                str_val = skytools.unescape_copy(value)
+                obf_val = self.obf_json(str_val, action)
+                obf_vals.append(skytools.quote_copy(obf_val))
+                continue
+            elif action == KEEP:
                 obf_vals.append(value)
                 continue
-            if action == actions.SKIP:
+            elif action == SKIP:
                 continue
+
             str_val = skytools.unescape_copy(value)
             if str_val is None:
                 obf_vals.append(value)
-            elif action == actions.HASH32:
+            elif action == HASH32:
                 obf_val = str(hash32(str_val))
                 obf_vals.append(obf_val)
-            elif action == actions.HASH64:
+            elif action == HASH64:
                 obf_val = str(hash64(str_val))
                 obf_vals.append(obf_val)
-            elif action == actions.HASH128:
+            elif action == HASH128:
                 obf_val = hash128(str_val)
                 obf_vals.append(obf_val)
-            elif action == actions.JSON:
-                obf_val = self.obf_json(str_val, obf_col)
-                obf_vals.append(skytools.quote_copy(obf_val))
             else:
                 raise ValueError('Invalid value for action: %s' % action)
         obf_data = '\t'.join(obf_vals) + '\n'
@@ -211,8 +219,8 @@ class Obfuscator(TableHandler):
 
         new_list = []
         for col in column_list:
-            action = obf_col_map.get(col, {}).get('action', actions.SKIP)
-            if action != actions.SKIP:
+            action = obf_col_map.get(col, {}).get('action', SKIP)
+            if action != SKIP:
                 new_list.append(col)
         column_list = new_list
 
@@ -226,3 +234,8 @@ class Obfuscator(TableHandler):
                                   write_hook=_write_hook)
 
 __londiste_handlers__ = [Obfuscator]
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
+
