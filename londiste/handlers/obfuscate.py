@@ -162,11 +162,10 @@ class Obfuscator(TableHandler):
                 raise ValueError('Invalid value for action: %r' % action)
         return dst
 
-    def obf_json(self, value, obf_col):
+    def obf_json(self, value, rule_data):
         if value is None:
             return None
         json_data = json.loads(value)
-        rule_data = obf_col['rules']
         obf_data = obf_json(json_data, rule_data)
         if obf_data is None:
             obf_data = {}
