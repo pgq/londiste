@@ -219,7 +219,7 @@ class Obfuscator(TableHandler):
 
         new_list = []
         for col in column_list:
-            action = obf_col_map.get(col, {}).get('action', SKIP)
+            action = obf_col_map.get(col, SKIP)
             if action != SKIP:
                 new_list.append(col)
         column_list = new_list
