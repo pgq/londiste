@@ -327,7 +327,7 @@ class Replicator(CascadedWorker):
 
     def __init__(self, args):
         """Replication init."""
-        super(Replicator, self).__init__('londiste3', 'db', args)
+        super(Replicator, self).__init__('londiste', 'db', args)
 
         self.table_list = []
         self.table_map = {}

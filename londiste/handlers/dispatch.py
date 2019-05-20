@@ -156,7 +156,7 @@ analyze:
 
 == NOTES ==
 
-NB! londiste3 does not currently support table renaming and field mapping when
+NB! londiste does not currently support table renaming and field mapping when
 creating or coping initial data to destination table.  --expect-sync and
 --skip-truncate should be used and --create switch is to be avoided.
 """

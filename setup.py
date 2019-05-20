@@ -3,12 +3,7 @@
 
 from setuptools import setup
 
-# python2: londiste
-# python3: londiste3
-import sys
 CLI_NAME = 'londiste'
-if sys.version_info[0] > 2:
-    CLI_NAME = 'londiste3'
 
 setup(
     name = "londiste",

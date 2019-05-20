@@ -33,7 +33,7 @@ class LondisteSetup(CascadeAdmin):
 
     def __init__(self, args):
         """Londiste setup init."""
-        super(LondisteSetup, self).__init__('londiste3', 'db', args, worker_setup=True)
+        super(LondisteSetup, self).__init__('londiste', 'db', args, worker_setup=True)
 
         # compat
         self.queue_name = self.cf.get('pgq_queue_name', '')

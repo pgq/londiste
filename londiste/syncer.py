@@ -34,7 +34,7 @@ class Syncer(skytools.DBScript):
 
     def __init__(self, args):
         """Syncer init."""
-        super(Syncer, self).__init__('londiste3', args)
+        super(Syncer, self).__init__('londiste', args)
         self.set_single_loop(1)
 
         # compat names
