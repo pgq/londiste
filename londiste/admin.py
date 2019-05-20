@@ -565,8 +565,7 @@ class LondisteSetup(CascadeAdmin):
                 local_seqs[seq['seq_name']] = seq['seq_name']
 
         # set replica role for EXECUTE transaction
-        if db.server_version >= 80300:
-            curs.execute("set local session_replication_role = 'local'")
+        curs.execute("select londiste.set_session_replication_role('local', true)")
 
         for fn in files:
             fname = os.path.basename(fn)

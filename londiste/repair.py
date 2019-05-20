@@ -46,7 +46,7 @@ class Repairer(Syncer):
         if self.options.apply:
             apply_db = self.get_database('db', cache='applydb', autocommit=1)
             self.apply_curs = apply_db.cursor()
-            self.apply_curs.execute("set session_replication_role = 'replica'")
+            self.apply_curs.execute("select londiste.set_session_replication_role('replica', false)")
 
         src_tbl = t1.dest_table
         dst_tbl = t2.dest_table

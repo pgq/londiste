@@ -345,9 +345,9 @@ class Replicator(CascadedWorker):
         load_handler_modules(self.cf)
 
     def connection_hook(self, dbname, db):
-        if dbname == 'db' and db.server_version >= 80300:
+        if dbname == 'db':
             curs = db.cursor()
-            curs.execute("set session_replication_role = 'replica'")
+            curs.execute("select londiste.set_session_replication_role('replica', false)")
             db.commit()
 
     code_check_done = 0
@@ -710,9 +710,7 @@ class Replicator(CascadedWorker):
         sql = ev.data
 
         # fixme: curs?
-        pgver = dst_curs.connection.server_version
-        if pgver >= 80300:
-            dst_curs.execute("set local session_replication_role = 'local'")
+        dst_curs.execute("select londiste.set_session_replication_role('local', true)")
 
         seq_map = {}
         q = "select seq_name, local from londiste.get_seq_list(%s) where local"
@@ -729,8 +727,7 @@ class Replicator(CascadedWorker):
         ret = res[0]['ret_code']
         if ret > 200:
             self.log.warning("Skipping execution of '%s'", fname)
-            if pgver >= 80300:
-                dst_curs.execute("set local session_replication_role = 'replica'")
+            dst_curs.execute("select londiste.set_session_replication_role('replica', true)")
             return
 
         if exec_attrs.need_execute(dst_curs, tbl_map, seq_map):
@@ -743,8 +740,7 @@ class Replicator(CascadedWorker):
 
         q = "select * from londiste.execute_finish(%s, %s)"
         self.exec_cmd(dst_curs, q, [self.queue_name, fname], commit=False)
-        if pgver >= 80300:
-            dst_curs.execute("set local session_replication_role = 'replica'")
+        dst_curs.execute("select londiste.set_session_replication_role('replica', true)")
 
     def apply_sql(self, sql, dst_curs):
 
