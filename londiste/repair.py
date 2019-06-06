@@ -92,7 +92,7 @@ class Repairer(Syncer):
         """ Sort contents of src file, write them to dst file. """
 
         p = subprocess.Popen(["sort", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        s_ver = p.communicate()[0]
+        s_ver = p.communicate()[0].decode('utf8', 'replace')
         del p
 
         xenv = os.environ.copy()
