@@ -159,6 +159,8 @@ class Londiste(skytools.DBScript):
                 help="repair: apply fixes automatically")
         g.add_option("--count-only", action="store_true",
                 help="compare: just count rows, do not compare data")
+        g.add_option("--sort-bufsize", action="store",
+                help="repair: set coreutils sort bufsize (default: 30%)")
         p.add_option_group(g)
 
         return p
