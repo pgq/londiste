@@ -36,6 +36,7 @@ class Repairer(Syncer):
         """Initialize cmdline switches."""
         p = super(Repairer, self).init_optparse(p)
         p.add_option("--apply", action="store_true", help="apply fixes")
+        p.add_option("--sort-bufsize", help="buffer for coreutils sort")
         return p
 
     def process_sync(self, t1, t2, src_db, dst_db):
@@ -102,7 +103,10 @@ class Repairer(Syncer):
         cmdline = ['sort', '-T', '.']
         if s_ver.find("coreutils") > 0:
             cmdline.append('-S')
-            cmdline.append('30%')
+            if self.options.sort_bufsize:
+                cmdline.append(self.options.sort_bufsize)
+            else:
+                cmdline.append('30%')
         cmdline.append('-o')
         cmdline.append(dst)
         cmdline.append(src)
