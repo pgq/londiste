@@ -381,7 +381,7 @@ class Replicator(CascadedWorker):
         self.copy_snapshot_cleanup(dst_db)
 
         # only main thread is allowed to restore fkeys
-        if not self.copy_thread:
+        if not self.copy_thread and self._worker_state.process_events:
             self.restore_fkeys(dst_db)
 
         for p in self.used_plugins.values():
