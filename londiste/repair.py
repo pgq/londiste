@@ -37,6 +37,7 @@ class Repairer(Syncer):
         p = super(Repairer, self).init_optparse(p)
         p.add_option("--apply", action="store_true", help="apply fixes")
         p.add_option("--sort-bufsize", help="buffer for coreutils sort")
+        p.add_option("--repair-where", help="where condition for selecting data")
         return p
 
     def process_sync(self, t1, t2, src_db, dst_db):
@@ -70,10 +71,15 @@ class Repairer(Syncer):
         dst_where = t2.plugin.get_copy_condition(src_curs, dst_curs)
         src_where = dst_where
 
-        self.log.info("Dumping src table: %s", src_tbl)
+        if self.options.repair_where and src_where:
+            dst_where = src_where = src_where + ' and ' + self.options.repair_where
+        elif self.options.repair_where:
+            dst_where = src_where = self.options.repair_where
+
+        self.log.info("Dumping src table: %s %s", src_tbl, src_where)
         self.dump_table(src_tbl, src_curs, dump_src, src_where)
         src_db.commit()
-        self.log.info("Dumping dst table: %s", dst_tbl)
+        self.log.info("Dumping dst table: %s %s", dst_tbl, dst_where)
         self.dump_table(dst_tbl, dst_curs, dump_dst, dst_where)
         dst_db.commit()
 
