@@ -342,6 +342,9 @@ class Replicator(CascadedWorker):
 
         self.consumer_filter = None
 
+    def reload(self):
+        super(Replicator, self).reload()
+
         load_handler_modules(self.cf)
 
     def connection_hook(self, dbname, db):
