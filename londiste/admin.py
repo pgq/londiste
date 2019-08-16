@@ -312,7 +312,7 @@ class LondisteSetup(CascadeAdmin):
                 self.log.info("Table %s info missing from subscriber, adding", tbl)
                 self.exec_cmd(dst_curs, q, [self.set_name, tbl])
                 dst_tbls[tbl] = {'local': False, 'dest_table': tbl}
-        for tbl in dst_tbls.keys():
+        for tbl in list(dst_tbls.keys()):
             q = "select * from londiste.global_remove_table(%s, %s)"
             if tbl not in src_tbls:
                 self.log.info("Table %s gone but exists on subscriber, removing", tbl)
