@@ -132,7 +132,12 @@ class Obfuscator(TableHandler):
         """Warn if column names in keep list are not in column list
         """
         if src_tablename not in self.obf_map:
-            raise KeyError('Source tabel not in obf_map: %s' % src_tablename)
+            raise KeyError('Source table not in obf_map: %s' % src_tablename)
+
+    def _get_map(self, src_tablename, row):
+        """Can be over ridden in inherited classes to implemnt data driven maps
+        """
+        return self.obf_map[src_tablename]
 
     def parse_row_data(self, ev):
         """Extract row data from event, with optional encoding fixes.
@@ -142,7 +147,7 @@ class Obfuscator(TableHandler):
         row = super(Obfuscator, self).parse_row_data(ev)
         self._validate(self.table_name, row.keys())
 
-        rule_data = self.obf_map[self.table_name]
+        rule_data = self._get_map(self.table_name, row)
         dst = {}
         for field, value in row.items():
             action = rule_data.get(field, SKIP)
@@ -171,13 +176,17 @@ class Obfuscator(TableHandler):
             obf_data = {}
         return json.dumps(obf_data)
 
-    def obf_copy_row(self, data, column_list, obf_col_map):
+    def obf_copy_row(self, data, column_list, src_tablename):
         if data[-1] == '\n':
             data = data[:-1]
         else:
             self.log.warning('Unexpected line from copy without end of line.')
 
         vals = data.split('\t')
+
+        row = {name: value for name, value in zip(column_list, vals)}
+        obf_col_map = self._get_map(src_tablename, row)
+
         obf_vals = []
         for field, value in zip(column_list, vals):
             action = obf_col_map.get(field, SKIP)
@@ -224,7 +233,7 @@ class Obfuscator(TableHandler):
         column_list = new_list
 
         def _write_hook(_, data):
-            return self.obf_copy_row(data, column_list, obf_col_map)
+            return self.obf_copy_row(data, column_list, src_tablename)
 
         condition = self.get_copy_condition(src_curs, dst_curs)
         return skytools.full_copy(src_tablename, src_curs, dst_curs,
@@ -237,4 +246,3 @@ __londiste_handlers__ = [Obfuscator]
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
