@@ -89,6 +89,8 @@ class LondisteSetup(CascadeAdmin):
                 help="add: name for actual table")
         p.add_option("--skip-non-existing", action="store_true",
                 help="add: skip object that does not exist")
+        p.add_option("--names-only", action="store_true",
+                help="tables: show only table names (for scripting)", default=False)
         return p
 
     def extra_init(self, node_type, node_db, provider_db):
@@ -510,16 +512,29 @@ class LondisteSetup(CascadeAdmin):
 
     def cmd_tables(self):
         """Show attached tables."""
-        q = """select table_name, merge_state, table_attrs
-        from londiste.get_table_list(%s) where local
-        order by table_name"""
         db = self.get_database('db')
         def show_attr(a):
             if a:
                 return skytools.db_urldecode(a)
             return ''
-        self.display_table(db, "Tables on node", q, [self.set_name],
-                           fieldfmt={'table_attrs': show_attr})
+        if self.options.names_only:
+            sql = """select table_name
+            from londiste.get_table_list(%s) where local
+            order by table_name"""
+            curs = db.cursor()
+            curs.execute(sql, [self.set_name])
+            rows = curs.fetchall()
+            db.commit()
+            if len(rows) == 0:
+                return
+            for row in rows:
+                print(row['table_name'])
+        else:
+            q = """select table_name, merge_state, table_attrs
+            from londiste.get_table_list(%s) where local
+            order by table_name"""
+            self.display_table(db, "Tables on node", q, [self.set_name],
+                               fieldfmt={'table_attrs': show_attr})
 
     def cmd_seqs(self):
         """Show attached seqs."""

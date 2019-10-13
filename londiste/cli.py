@@ -152,6 +152,11 @@ class Londiste(skytools.DBScript):
                 help="add: skip object that does not exist")
         p.add_option_group(g)
 
+        g = optparse.OptionGroup(p, "options for tables")
+        g.add_option("--names-only", action="store_true",
+                help="tables: show only table names (for scripting)")
+        p.add_option_group(g)
+
         g = optparse.OptionGroup(p, "other options")
         g.add_option("--force", action="store_true",
                 help="add: ignore table differences, repair: ignore lag")
