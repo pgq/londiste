@@ -23,6 +23,7 @@ __all__ = ['Obfuscator']
 
 _KEY = b''
 
+BOOL = 'bool'
 KEEP = 'keep'
 JSON = 'json'
 HASH32 = 'hash32'
@@ -106,6 +107,10 @@ def obf_json(json_data, rule_data):
         return None
     elif isinstance(json_data, (dict, list)):
         return None
+    elif rule_data == BOOL:
+        if json_data is None:
+            return None
+        return bool(json_data) and 't' or 'f'
     elif rule_data == HASH32:
         return hash32(json_data)
     elif rule_data == HASH64:
@@ -157,6 +162,11 @@ class Obfuscator(TableHandler):
                 dst[field] = value
             elif action == SKIP:
                 continue
+            elif action == BOOL:
+                if value is None:
+                    dst[field] = value
+                else:
+                    dst[field] = bool(value) and 't' or 'f'
             elif action == HASH32:
                 dst[field] = hash32(value)
             elif action == HASH64:
@@ -205,6 +215,9 @@ class Obfuscator(TableHandler):
             str_val = skytools.unescape_copy(value)
             if str_val is None:
                 obf_vals.append(value)
+            elif action == BOOL:
+                obf_val = str(bool(str_val) and 't' or 'f')
+                obf_vals.append(obf_val)
             elif action == HASH32:
                 obf_val = str(hash32(str_val))
                 obf_vals.append(obf_val)
