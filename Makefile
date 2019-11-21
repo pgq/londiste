@@ -12,3 +12,9 @@ deb:
 
 xclean: clean
 	rm -rf .tox dist
+
+sdist:
+	python3 setup.py sdist
+
+upload:
+	twine upload dist/*.gz
