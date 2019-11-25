@@ -101,21 +101,21 @@ def obf_json(json_data, rule_data):
         if not result:
             return None
         return result
-    elif rule_data == KEEP:
+    if rule_data == KEEP:
         return json_data
-    elif rule_data == SKIP:
+    if rule_data == SKIP:
         return None
-    elif isinstance(json_data, (dict, list)):
+    if isinstance(json_data, (dict, list)):
         return None
-    elif rule_data == BOOL:
+    if rule_data == BOOL:
         if json_data is None:
             return None
         return bool(json_data) and 't' or 'f'
-    elif rule_data == HASH32:
+    if rule_data == HASH32:
         return hash32(json_data)
-    elif rule_data == HASH64:
+    if rule_data == HASH64:
         return hash64(json_data)
-    elif rule_data == HASH128:
+    if rule_data == HASH128:
         return hash128(json_data)
     raise ValueError('Invalid rule value: %r' % rule_data)
 
@@ -133,15 +133,11 @@ class Obfuscator(TableHandler):
         with open(cf.getfile('obfuscator_map'), 'r') as f:
             cls.obf_map = yaml.safe_load(f)
 
-    def _validate(self, src_tablename, column_list):
-        """Warn if column names in keep list are not in column list
+    def _get_map(self, src_tablename, row=None):
+        """Can be over ridden in inherited classes to implemnt data driven maps
         """
         if src_tablename not in self.obf_map:
             raise KeyError('Source table not in obf_map: %s' % src_tablename)
-
-    def _get_map(self, src_tablename, row):
-        """Can be over ridden in inherited classes to implemnt data driven maps
-        """
         return self.obf_map[src_tablename]
 
     def parse_row_data(self, ev):
@@ -150,7 +146,6 @@ class Obfuscator(TableHandler):
         Returns either string (sql event) or dict (urlenc event).
         """
         row = super(Obfuscator, self).parse_row_data(ev)
-        self._validate(self.table_name, row.keys())
 
         rule_data = self._get_map(self.table_name, row)
         dst = {}
@@ -178,6 +173,8 @@ class Obfuscator(TableHandler):
         return dst
 
     def obf_json(self, value, rule_data):
+        """Recursive obfuscate for json
+        """
         if value is None:
             return None
         json_data = json.loads(value)
@@ -187,6 +184,8 @@ class Obfuscator(TableHandler):
         return json.dumps(obf_data)
 
     def obf_copy_row(self, data, column_list, src_tablename):
+        """Apply obfuscation to one row
+        """
         if data[-1] == '\n':
             data = data[:-1]
         else:
@@ -235,8 +234,7 @@ class Obfuscator(TableHandler):
     def real_copy(self, src_tablename, src_curs, dst_curs, column_list):
         """Initial copy
         """
-        self._validate(src_tablename, column_list)
-        obf_col_map = self.obf_map[src_tablename]
+        obf_col_map = self._get_map(src_tablename)
 
         new_list = []
         for col in column_list:
