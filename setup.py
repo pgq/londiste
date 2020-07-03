@@ -10,7 +10,7 @@ setup(
     description = "Database replication based on PgQ",
     url = "https://github.com/pgq/londiste",
     license = "ISC",
-    version = '3.4',
+    version = '3.4.1',
     maintainer = "Marko Kreen",
     maintainer_email = "markokr@gmail.com",
     packages = ['londiste', 'londiste.handlers'],
