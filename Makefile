@@ -18,3 +18,4 @@ sdist:
 
 upload:
 	twine upload dist/*.gz
+
