@@ -14,7 +14,7 @@ setup(
     maintainer = "Marko Kreen",
     maintainer_email = "markokr@gmail.com",
     packages = ['londiste', 'londiste.handlers'],
-    install_requires = ['pgq', 'skytools', 'psycopg2'],
+    install_requires = ['pgq', 'skytools'],
     entry_points = {
         'console_scripts': [
             CLI_NAME + ' = londiste.cli:main',
