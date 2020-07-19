@@ -24,8 +24,7 @@ Default is 0.
 """
 
 import skytools
-
-from skytools import quote_ident, quote_fqident
+from skytools import quote_fqident, quote_ident
 
 from londiste.handler import BaseHandler
 
@@ -374,3 +373,4 @@ class BulkLoader(BaseHandler):
 
 # register handler class
 __londiste_handlers__ = [BulkLoader]
+

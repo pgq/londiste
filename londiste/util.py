@@ -1,12 +1,14 @@
 """Misc utilities for COPY code.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import skytools
+
 import londiste.handler
 
 __all__ = ['handler_allows_copy', 'find_copy_source']
+
 
 def handler_allows_copy(table_attrs):
     """Decide if table is copyable based on attrs."""
@@ -16,6 +18,7 @@ def handler_allows_copy(table_attrs):
     hstr = attrs.get('handler', '')
     p = londiste.handler.build_handler('unused.string', hstr, None)
     return p.needs_table()
+
 
 def find_copy_source(script, queue_name, copy_table_name, node_name, node_location):
     """Find source node for table.
@@ -36,7 +39,7 @@ def find_copy_source(script, queue_name, copy_table_name, node_name, node_locati
     else:
         need = set(copy_table_name)
 
-    while 1:
+    while True:
         src_db = script.get_database('_source_db', connstr=node_location, autocommit=1, profile='remote')
         src_curs = src_db.cursor()
 
@@ -79,3 +82,4 @@ def find_copy_source(script, queue_name, copy_table_name, node_name, node_locati
         node_name = info['provider_node']
         node_location = info['provider_location']
         worker_name = info['worker_name']
+

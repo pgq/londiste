@@ -1,20 +1,20 @@
 """Basic replication core."""
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import os
+import sys
 import time
+
 import skytools
 
+from londiste.exec_attrs import ExecAttrs
+from londiste.handler import build_handler, load_handler_modules
 from pgq.cascade.worker import CascadedWorker
 
-from londiste.handler import load_handler_modules, build_handler
-from londiste.exec_attrs import ExecAttrs
-
 __all__ = ['Replicator', 'TableState',
-    'TABLE_MISSING', 'TABLE_IN_COPY', 'TABLE_CATCHING_UP',
-    'TABLE_WANNA_SYNC', 'TABLE_DO_SYNC', 'TABLE_OK']
+           'TABLE_MISSING', 'TABLE_IN_COPY', 'TABLE_CATCHING_UP',
+           'TABLE_WANNA_SYNC', 'TABLE_DO_SYNC', 'TABLE_OK']
 
 # state                 # owner - who is allowed to change
 TABLE_MISSING = 0       # main
@@ -28,7 +28,8 @@ SYNC_OK = 0    # continue with batch
 SYNC_LOOP = 1  # sleep, try again
 SYNC_EXIT = 2  # nothing to do, exit script
 
-MAX_PARALLEL_COPY = 8 # default number of allowed max parallel copy processes
+MAX_PARALLEL_COPY = 8  # default number of allowed max parallel copy processes
+
 
 class Counter(object):
     """Counts table statuses."""
@@ -58,6 +59,7 @@ class Counter(object):
 
     def get_copy_count(self):
         return self.copy + self.catching_up + self.wanna_sync + self.do_sync
+
 
 class TableState(object):
     """Keeps state about one table."""
@@ -188,20 +190,20 @@ class TableState(object):
 
         self.copy_pos = int(row.get('copy_pos', '0'))
         self.max_parallel_copy = int(self.table_attrs.get('max_parallel_copy',
-                                                        self.max_parallel_copy))
+                                                          self.max_parallel_copy))
 
         if 'dest_table' in row and row['dest_table']:
             self.dest_table = row['dest_table']
         else:
             self.dest_table = self.name
 
-        hstr = self.table_attrs.get('handlers', '') # compat
+        hstr = self.table_attrs.get('handlers', '')  # compat
         hstr = self.table_attrs.get('handler', hstr)
         self.plugin = build_handler(self.name, hstr, self.dest_table)
 
     def max_parallel_copies_reached(self):
         return self.max_parallel_copy and\
-                    self.copy_pos >= self.max_parallel_copy
+            self.copy_pos >= self.max_parallel_copy
 
     def interesting(self, ev, tick_id, copy_thread, copy_table_name):
         """Check if table wants this event."""
@@ -270,6 +272,7 @@ class TableState(object):
     def get_plugin(self):
         return self.plugin
 
+
 class Replicator(CascadedWorker):
     """Replication core.
 
@@ -320,7 +323,7 @@ class Replicator(CascadedWorker):
     # batch info
     cur_tick = 0
     prev_tick = 0
-    copy_table_name = None # filled by Copytable()
+    copy_table_name = None  # filled by Copytable()
     sql_list = []
 
     current_event = None
@@ -432,7 +435,7 @@ class Replicator(CascadedWorker):
         return one of SYNC_* constants."""
 
         self.log.debug('Sync tables')
-        while 1:
+        while True:
             cnt = Counter(self.table_list)
             if self.copy_thread:
                 res = self.sync_from_copy_thread(cnt, src_db, dst_db)
@@ -513,7 +516,7 @@ class Replicator(CascadedWorker):
                         self.log.warning("Table %s not available on provider", t.name)
                         continue
                     pt = pmap[t.name]
-                    if pt.state != TABLE_OK: # or pt.custom_snapshot: # FIXME: does snapsnot matter?
+                    if pt.state != TABLE_OK:  # or pt.custom_snapshot: # FIXME: does snapsnot matter?
                         self.log.info("Table %s not OK on provider, waiting", t.name)
                         continue
 
@@ -562,7 +565,7 @@ class Replicator(CascadedWorker):
                 return SYNC_OK
             else:
                 self.log.error("copy_sync: cur_tick=%d sync_tick=%d",
-                                self.cur_tick, t.sync_tick_id)
+                               self.cur_tick, t.sync_tick_id)
                 raise Exception('Invalid table state')
         elif t.state == TABLE_WANNA_SYNC:
             # wait for main thread to react
@@ -612,7 +615,6 @@ class Replicator(CascadedWorker):
         self.log.info("%s: analyze", ts.name)
         dst_curs.execute("analyze " + skytools.quote_fqident(ts.name))
         dst_db.commit()
-
 
     def do_copy(self, tbl, src_db, dst_db):
         """Callback for actual copy implementation."""
@@ -844,7 +846,7 @@ class Replicator(CascadedWorker):
                 continue
             merge_state = t.render_state()
             self.log.info("storing state of %s: copy:%d new_state:%s",
-                            t.name, self.copy_thread, merge_state)
+                          t.name, self.copy_thread, merge_state)
             q = "select londiste.local_set_table_state(%s, %s, %s, %s)"
             curs.execute(q, [self.set_name,
                              t.name, t.str_snapshot, merge_state])
@@ -994,6 +996,8 @@ class Replicator(CascadedWorker):
             emsg = info + emsg
         super(Replicator, self).exception_hook(det, emsg)
 
+
 if __name__ == '__main__':
     script = Replicator(sys.argv[1:])
     script.start()
+

@@ -12,11 +12,10 @@ qsplitter  - dummy handler to setup queue tables. All events are ignored. Table
 
 """
 
-from __future__ import division, absolute_import, print_function
-
-from londiste.handler import BaseHandler
+from __future__ import absolute_import, division, print_function
 
 import pgq
+from londiste.handler import BaseHandler
 
 __all__ = ['QueueTableHandler', 'QueueSplitterHandler']
 
@@ -93,3 +92,4 @@ class QueueSplitterHandler(BaseHandler):
 
 
 __londiste_handlers__ = [QueueTableHandler, QueueSplitterHandler]
+

@@ -166,12 +166,11 @@ import re
 from functools import partial
 
 import skytools
-from skytools import quote_ident, quote_fqident, UsageError
-from skytools.dbstruct import TableStruct, T_ALL
+from skytools import UsageError, quote_fqident, quote_ident
+from skytools.dbstruct import T_ALL, TableStruct
 
 from londiste.handlers import handler_args, update
 from londiste.handlers.shard import ShardHandler
-
 
 __all__ = ['Dispatcher']
 
@@ -981,6 +980,7 @@ def _install_handler_docstrings(dst_cls):
         if found:
             dst_cls._doc_ += "\n" + line
 
+
 _install_handler_docstrings(Dispatcher)
 
 #------------------------------------------------------------------------------
@@ -1053,12 +1053,14 @@ def _generate_handlers():
                 defs = update(mode_dict, period_dict, load_dict, BASE)
                 set_handler_doc(hcls, defs)
 
+
 _generate_handlers()
 
 
 @handler_args('bulk_direct')
 def bulk_direct_handler(args):
     return update(args, {'load_mode': 'bulk', 'table_mode': 'direct'})
+
 
 set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': 'direct'})
 
@@ -1067,4 +1069,6 @@ set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': '
 def direct_handler(args):
     return update(args, {'load_mode': 'direct', 'table_mode': 'direct'})
 
+
 set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'direct', 'table_mode': 'direct'})
+

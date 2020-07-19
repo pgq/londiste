@@ -1,10 +1,10 @@
 """Handlers module
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import functools
+import sys
 
 DEFAULT_HANDLERS = []
 
@@ -33,3 +33,4 @@ def update(*p):
     in reverse order """
     return functools.reduce(lambda x, y: x.update(y) or x,
                             (p[i] for i in range(len(p) - 1, -1, -1)), {})
+

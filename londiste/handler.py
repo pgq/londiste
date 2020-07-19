@@ -4,12 +4,14 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import json
 import logging
+import sys
+
 import skytools
+
 import londiste.handlers
 
 _ = """
@@ -41,6 +43,7 @@ plain londiste:
 __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
            'load_handler_modules', 'create_handler_string']
 
+
 class RowCache(object):
     def __init__(self, table_name):
         self.table_name = table_name
@@ -68,6 +71,7 @@ class RowCache(object):
     def apply_rows(self, curs):
         fields = self.get_fields()
         skytools.magic_insert(curs, self.table_name, self.rows, fields)
+
 
 class BaseHandler(object):
     """Defines base API, does nothing.
@@ -334,7 +338,7 @@ class EncodingValidator(object):
         ok, u = skytools.safe_utf8_decode(value)
         if ok:
             return value
-        _pfx = pfx and (pfx+': ') or ""
+        _pfx = pfx and (pfx + ': ') or ""
         self.log.info('%sFixed invalid UTF8 in string <%s>', _pfx, value)
         return u.encode('utf8')
 
@@ -342,9 +346,11 @@ class EncodingValidator(object):
 # handler management
 #
 
+
 _handler_map = {
     'londiste': TableHandler,
 }
+
 
 def register_handler_module(modname, cf):
     """Import and module and register handlers."""
@@ -358,6 +364,7 @@ def register_handler_module(modname, cf):
         h.load_conf(cf)
         _handler_map[h.handler_name] = h
 
+
 def _parse_arglist(arglist):
     args = {}
     for arg in arglist or []:
@@ -367,6 +374,7 @@ def _parse_arglist(arglist):
             raise Exception('multiple handler arguments: %s' % key)
         args[key] = val.strip()
     return args
+
 
 def create_handler_string(name, arglist):
     handler = name
@@ -378,20 +386,22 @@ def create_handler_string(name, arglist):
         handler = '%s(%s)' % (handler, astr)
     return handler
 
+
 def _parse_handler(hstr):
     """Parse result of create_handler_string()."""
     args = {}
     name = hstr
     pos = hstr.find('(')
     if pos > 0:
-        name = hstr[ : pos]
+        name = hstr[: pos]
         if hstr[-1] != ')':
             raise Exception('invalid handler format: %s' % hstr)
-        astr = hstr[pos + 1 : -1]
+        astr = hstr[pos + 1: -1]
         if astr:
             astr = astr.replace(',', '&')
             args = skytools.db_urldecode(astr)
     return (name, args)
+
 
 def build_handler(tblname, hstr, dest_table=None):
     """Parse and initialize handler.
@@ -405,6 +415,7 @@ def build_handler(tblname, hstr, dest_table=None):
         dest_table = tblname
     return klass(tblname, args, dest_table)
 
+
 def load_handler_modules(cf):
     """Load and register modules from config."""
     lst = londiste.handlers.DEFAULT_HANDLERS
@@ -412,6 +423,7 @@ def load_handler_modules(cf):
 
     for m in lst:
         register_handler_module(m, cf)
+
 
 def show(mods):
     if not mods:
@@ -428,3 +440,4 @@ def show(mods):
             if desc:
                 desc = desc.strip()
             print("%s - %s" % (n, desc))
+

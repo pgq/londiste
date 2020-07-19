@@ -3,17 +3,21 @@
 For internal usage.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import sys
 import time
-import skytools
 
-from skytools.dbstruct import TableStruct, T_CONSTRAINT, T_INDEX, T_RULE, T_PARENT
+import skytools
+from skytools.dbstruct import (
+    T_CONSTRAINT, T_INDEX, T_PARENT, T_RULE, TableStruct,
+)
+
+from londiste.playback import TABLE_CATCHING_UP, TABLE_OK, Replicator
 from londiste.util import find_copy_source
-from londiste.playback import Replicator, TABLE_OK, TABLE_CATCHING_UP
 
 __all__ = ['CopyTable']
+
 
 class CopyTable(Replicator):
     """Table copy thread implementation."""
@@ -62,19 +66,19 @@ class CopyTable(Replicator):
         src_curs = src_db.cursor()
         dst_curs = dst_db.cursor()
 
-        while 1:
+        while True:
             if tbl_stat.copy_role == 'wait-copy':
                 self.log.info('waiting for first partition to initialize copy')
             elif tbl_stat.max_parallel_copies_reached():
                 self.log.info('number of max parallel copies (%s) reached',
-                                tbl_stat.max_parallel_copy)
+                              tbl_stat.max_parallel_copy)
             else:
                 break
             time.sleep(10)
             tbl_stat = self.reload_table_stat(dst_curs, tbl_stat.name)
             dst_db.commit()
 
-        while 1:
+        while True:
             pmap = self.get_state_map(src_db.cursor())
             src_db.commit()
             if tbl_stat.name not in pmap:
@@ -137,7 +141,7 @@ class CopyTable(Replicator):
 
         # drop unnecessary stuff
         if cmode > 0:
-            objs = T_CONSTRAINT | T_INDEX | T_RULE | T_PARENT # | T_TRIGGER
+            objs = T_CONSTRAINT | T_INDEX | T_RULE | T_PARENT  # | T_TRIGGER
             dst_struct.drop(dst_curs, objs, log=self.log)
 
             # drop data
@@ -255,7 +259,7 @@ class CopyTable(Replicator):
         if 'copy_node' in attrs:
             if attrs['copy_node'] == '?':
                 source_node, source_location, ___wname = find_copy_source(self,
-                        self.queue_name, self.copy_table_name, source_node, source_location)
+                                                                          self.queue_name, self.copy_table_name, source_node, source_location)
             else:
                 # take node from attrs
                 source_node = attrs['copy_node']
@@ -268,6 +272,8 @@ class CopyTable(Replicator):
         self.log.info("Using '%s' as source node", source_node)
         self.register_consumer(source_location)
 
+
 if __name__ == '__main__':
     script = CopyTable(sys.argv[1:])
     script.start()
+

@@ -3,11 +3,11 @@
 Walks tables by primary key and searches for missing inserts/updates/deletes.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import os
 import subprocess
+import sys
 
 import skytools
 
@@ -15,9 +15,11 @@ from londiste.syncer import Syncer
 
 __all__ = ['Repairer']
 
+
 def unescape(s):
     """Remove copy escapes."""
     return skytools.unescape_copy(s)
+
 
 class Repairer(Syncer):
     """Walks tables in primary key order and checks if data matches."""
@@ -155,7 +157,7 @@ class Repairer(Syncer):
             whr = 'true'
         q = "copy (SELECT %s FROM %s WHERE %s) to stdout" % (cols, skytools.quote_fqident(tbl), whr)
         self.log.debug("Query: %s", q)
-        f = open(fn, "w", 64*1024)
+        f = open(fn, "w", 64 * 1024)
         curs.copy_expert(q, f)
         size = f.tell()
         f.close()
@@ -181,8 +183,8 @@ class Repairer(Syncer):
         self.cnt_delete = 0
         self.total_src = 0
         self.total_dst = 0
-        f1 = open(src_fn, "r", 64*1024)
-        f2 = open(dst_fn, "r", 64*1024)
+        f1 = open(src_fn, "r", 64 * 1024)
+        f2 = open(dst_fn, "r", 64 * 1024)
         src_ln = f1.readline()
         dst_ln = f2.readline()
         if src_ln:
@@ -223,9 +225,9 @@ class Repairer(Syncer):
                     self.total_dst += 1
 
         self.log.info("finished %s: src: %d rows, dst: %d rows,"
-                " missed: %d inserts, %d updates, %d deletes",
-                tbl, self.total_src, self.total_dst,
-                self.cnt_insert, self.cnt_update, self.cnt_delete)
+                      " missed: %d inserts, %d updates, %d deletes",
+                      tbl, self.total_src, self.total_dst,
+                      self.cnt_insert, self.cnt_update, self.cnt_delete)
 
     def got_missed_insert(self, tbl, src_row):
         """Create sql for missed insert."""
@@ -238,7 +240,7 @@ class Repairer(Syncer):
             v = unescape(src_row[f])
             val_list.append(skytools.quote_literal(v))
         q = "insert into %s (%s) values (%s);" % (
-                tbl, ", ".join(fq_list), ", ".join(val_list))
+            tbl, ", ".join(fq_list), ", ".join(val_list))
         self.show_fix(tbl, q, 'insert')
 
     def got_missed_update(self, tbl, src_row, dst_row):
@@ -259,7 +261,7 @@ class Repairer(Syncer):
             self.addcmp(whe_list, skytools.quote_ident(f), unescape(v2))
 
         q = "update only %s set %s where %s;" % (
-                tbl, ", ".join(set_list), " and ".join(whe_list))
+            tbl, ", ".join(set_list), " and ".join(whe_list))
         self.show_fix(tbl, q, 'update')
 
     def got_missed_delete(self, tbl, dst_row):
@@ -344,3 +346,4 @@ class Repairer(Syncer):
             elif v1 > v2:
                 return 1
         return 0
+

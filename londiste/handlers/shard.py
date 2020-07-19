@@ -22,9 +22,10 @@ Local config:
 
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import skytools
+
 from londiste.handler import TableHandler
 
 __all__ = ['ShardHandler', 'PartHandler']
@@ -116,3 +117,4 @@ class PartHandler(ShardHandler):
 
 # register handler class
 __londiste_handlers__ = [ShardHandler, PartHandler]
+

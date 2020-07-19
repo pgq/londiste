@@ -3,24 +3,24 @@
 
 from setuptools import setup
 
-CLI_NAME = 'londiste'
+CLI_NAME = "londiste"
 
 setup(
-    name = "londiste",
-    description = "Database replication based on PgQ",
-    url = "https://github.com/pgq/londiste",
-    license = "ISC",
-    version = '3.4.1',
-    maintainer = "Marko Kreen",
-    maintainer_email = "markokr@gmail.com",
-    packages = ['londiste', 'londiste.handlers'],
-    install_requires = ['pgq', 'skytools'],
-    entry_points = {
-        'console_scripts': [
-            CLI_NAME + ' = londiste.cli:main',
+    name="londiste",
+    description="Database replication based on PgQ",
+    url="https://github.com/pgq/londiste",
+    license="ISC",
+    version="3.4.1",
+    maintainer="Marko Kreen",
+    maintainer_email="markokr@gmail.com",
+    packages=["londiste", "londiste.handlers"],
+    install_requires=["pgq", "skytools"],
+    entry_points={
+        "console_scripts": [
+            CLI_NAME + " = londiste.cli:main",
         ],
     },
-    classifiers = [
+    classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Environment :: No Input/Output (Daemon)",

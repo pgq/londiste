@@ -1,20 +1,21 @@
 """Londiste setup and sanity checker.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import os
 import re
+import sys
+
 import skytools
 
-from pgq.cascade.admin import CascadeAdmin
+import londiste.handler
 from londiste.exec_attrs import ExecAttrs
 from londiste.util import find_copy_source
-
-import londiste.handler
+from pgq.cascade.admin import CascadeAdmin
 
 __all__ = ['LondisteSetup']
+
 
 class LondisteSetup(CascadeAdmin):
     """Londiste-specific admin commands."""
@@ -22,7 +23,7 @@ class LondisteSetup(CascadeAdmin):
     provider_location = None
 
     commands_without_pidfile = CascadeAdmin.commands_without_pidfile + [
-            'tables', 'seqs', 'missing', 'show-handlers']
+        'tables', 'seqs', 'missing', 'show-handlers']
 
     def install_code(self, db):
         self.extra_objs = [
@@ -52,45 +53,45 @@ class LondisteSetup(CascadeAdmin):
 
         p = super(LondisteSetup, self).init_optparse(parser)
         p.add_option("--expect-sync", action="store_true", dest="expect_sync",
-                help="no copy needed", default=False)
+                     help="no copy needed", default=False)
         p.add_option("--skip-truncate", action="store_true", dest="skip_truncate",
-                help="do not delete old data", default=False)
+                     help="do not delete old data", default=False)
         p.add_option("--find-copy-node", action="store_true", dest="find_copy_node",
-                help="add: find table source for copy by walking upwards")
+                     help="add: find table source for copy by walking upwards")
         p.add_option("--copy-node", metavar="NODE", dest="copy_node",
-                help="add: use NODE as source for initial copy")
+                     help="add: use NODE as source for initial copy")
         p.add_option("--force", action="store_true",
-                help="force", default=False)
+                     help="force", default=False)
         p.add_option("--all", action="store_true",
-                help="include all tables", default=False)
+                     help="include all tables", default=False)
         p.add_option("--wait-sync", action="store_true",
-                help="add: wait until all tables are in sync")
+                     help="add: wait until all tables are in sync")
         p.add_option("--create", action="store_true",
-                help="create, minimal", default=False)
+                     help="create, minimal", default=False)
         p.add_option("--create-full", action="store_true",
-                help="create, full")
+                     help="create, full")
         p.add_option("--trigger-flags",
-                help="set trigger flags (BAIUDLQ)")
+                     help="set trigger flags (BAIUDLQ)")
         p.add_option("--trigger-arg", action="append",
-                help="custom trigger arg")
+                     help="custom trigger arg")
         p.add_option("--no-triggers", action="store_true",
-                help="no triggers on table")
+                     help="no triggers on table")
         p.add_option("--handler", action="store",
-                help="add: custom handler for table")
+                     help="add: custom handler for table")
         p.add_option("--handler-arg", action="append",
-                help="add: argument to custom handler")
+                     help="add: argument to custom handler")
         p.add_option("--merge-all", action="store_true",
-                help="merge tables from all source queues", default=False)
+                     help="merge tables from all source queues", default=False)
         p.add_option("--no-merge", action="store_true",
-                help="do not merge tables from source queues", default=False)
+                     help="do not merge tables from source queues", default=False)
         p.add_option("--max-parallel-copy", metavar="NUM", type="int",
-                help="max number of parallel copy processes")
+                     help="max number of parallel copy processes")
         p.add_option("--dest-table", metavar="NAME",
-                help="add: name for actual table")
+                     help="add: name for actual table")
         p.add_option("--skip-non-existing", action="store_true",
-                help="add: skip object that does not exist")
+                     help="add: skip object that does not exist")
         p.add_option("--names-only", action="store_true",
-                help="tables: show only table names (for scripting)", default=False)
+                     help="tables: show only table names (for scripting)", default=False)
         return p
 
     def extra_init(self, node_type, node_db, provider_db):
@@ -280,7 +281,7 @@ class LondisteSetup(CascadeAdmin):
             tgargs = self.options.trigger_arg
         tgflags = self.options.trigger_flags
         if tgflags:
-            tgargs.append('tgflags='+tgflags)
+            tgargs.append('tgflags=' + tgflags)
         if self.options.no_triggers:
             tgargs.append('no_triggers')
         if self.options.merge_all:
@@ -294,7 +295,7 @@ class LondisteSetup(CascadeAdmin):
     def build_handler(self, tbl, tgargs, dest_table=None):
         """Build handler and return handler string"""
         hstr = londiste.handler.create_handler_string(
-                self.options.handler, self.options.handler_arg)
+            self.options.handler, self.options.handler_arg)
         p = londiste.handler.build_handler(tbl, hstr, dest_table)
         p.add(tgargs)
         return hstr
@@ -302,7 +303,7 @@ class LondisteSetup(CascadeAdmin):
     def handler_needs_table(self):
         if self.options.handler:
             hstr = londiste.handler.create_handler_string(
-                            self.options.handler, self.options.handler_arg)
+                self.options.handler, self.options.handler_arg)
             p = londiste.handler.build_handler('unused.string', hstr, None)
             return p.needs_table()
         return True
@@ -513,6 +514,7 @@ class LondisteSetup(CascadeAdmin):
     def cmd_tables(self):
         """Show attached tables."""
         db = self.get_database('db')
+
         def show_attr(a):
             if a:
                 return skytools.db_urldecode(a)
@@ -735,7 +737,7 @@ class LondisteSetup(CascadeAdmin):
 
         partial = {}
         startup_info = 0
-        while 1:
+        while True:
             dst_curs.execute(q, [self.queue_name])
             rows = dst_curs.fetchall()
             dst_db.commit()
@@ -805,3 +807,4 @@ class LondisteSetup(CascadeAdmin):
                 tinfo[2] += 1
                 if not bak and ev.ev_type == 'D':
                     tinfo[3] = NO_ROLLBACK
+

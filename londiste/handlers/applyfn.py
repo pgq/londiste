@@ -3,6 +3,7 @@ Send all events to a DB function.
 """
 
 import skytools
+
 from londiste.handler import BaseHandler
 
 __all__ = ['ApplyFuncHandler']
@@ -43,4 +44,6 @@ class ApplyFuncHandler(BaseHandler):
 # register handler class
 #------------------------------------------------------------------------------
 
+
 __londiste_handlers__ = [ApplyFuncHandler]
+

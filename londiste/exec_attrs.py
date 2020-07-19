@@ -51,19 +51,19 @@ True
 --*--     mytable-longname-more3, mytable-longname-more4, mytable-longname-more5,
 --*--     mytable-longname-more6, mytable-longname-more7
 >>> a = ExecAttrs(sql = '''
-... 
-...  -- 
-... 
-... --*-- Local-Table: foo , 
+...
+...  --
+...
+... --*-- Local-Table: foo ,
 ... --
-... --*-- bar , 
+... --*-- bar ,
 ... --*--
-... --*-- zoo 
-... --*-- 
-... --*-- Local-Sequence: goo  
-... --*-- 
+... --*-- zoo
+... --*--
+... --*-- Local-Sequence: goo
+... --*--
 ... --
-... 
+...
 ... create fooza;
 ... ''')
 >>> print(a.to_sql())
@@ -87,11 +87,12 @@ alter table other."Bar";
 alter table "Other"."Foo";
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import skytools
 
 META_PREFIX = "--*--"
+
 
 class Matcher(object):
     nice_name = None
@@ -102,6 +103,7 @@ class Matcher(object):
     def local_rename(self):
         return False
 
+
 class LocalTable(Matcher):
     nice_name = "Local-Table"
     def match(self, objname, curs, tables, seqs):
@@ -109,12 +111,14 @@ class LocalTable(Matcher):
     def local_rename(self):
         return True
 
+
 class LocalSequence(Matcher):
     nice_name = "Local-Sequence"
     def match(self, objname, curs, tables, seqs):
         return objname in seqs
     def local_rename(self):
         return True
+
 
 class LocalDestination(Matcher):
     nice_name = "Local-Destination"
@@ -126,20 +130,24 @@ class LocalDestination(Matcher):
     def local_rename(self):
         return True
 
+
 class NeedTable(Matcher):
     nice_name = "Need-Table"
     def match(self, objname, curs, tables, seqs):
         return skytools.exists_table(curs, objname)
+
 
 class NeedSequence(Matcher):
     nice_name = "Need-Sequence"
     def match(self, objname, curs, tables, seqs):
         return skytools.exists_sequence(curs, objname)
 
+
 class NeedSchema(Matcher):
     nice_name = "Need-Schema"
     def match(self, objname, curs, tables, seqs):
         return skytools.exists_schema(curs, objname)
+
 
 class NeedFunction(Matcher):
     nice_name = "Need-Function"
@@ -149,15 +157,17 @@ class NeedFunction(Matcher):
         if pos1 > 0:
             pos2 = objname.find(')')
             if pos2 > 0:
-                s = objname[pos1+1 : pos2]
+                s = objname[pos1 + 1: pos2]
                 objname = objname[:pos1]
                 nargs = int(s)
         return skytools.exists_function(curs, objname, nargs)
+
 
 class NeedView(Matcher):
     nice_name = "Need-View"
     def match(self, objname, curs, tables, seqs):
         return skytools.exists_view(curs, objname)
+
 
 META_SPLITLINE = 70
 
@@ -169,10 +179,12 @@ META_MATCHERS = [
 ]
 
 # key to nice key
-META_KEYS = {m.nice_name.lower():m for m in META_MATCHERS}
+META_KEYS = {m.nice_name.lower(): m for m in META_MATCHERS}
+
 
 class ExecAttrsException(skytools.UsageError):
     """Some parsing problem."""
+
 
 class ExecAttrs(object):
     """Container and parser for EXECUTE attributes."""
@@ -278,7 +290,7 @@ class ExecAttrs(object):
 
                 # go to next line
                 continue
-            
+
             # parse key
             pos = ln.find(':')
             if pos < 0:
@@ -286,7 +298,7 @@ class ExecAttrs(object):
             k = ln[:pos].strip()
 
             # collect values
-            for v in ln[pos+1:].split(','):
+            for v in ln[pos + 1:].split(','):
                 v = v.strip()
                 if not v:
                     continue
@@ -304,7 +316,7 @@ class ExecAttrs(object):
         # if no attrs, always execute
         if not self.attrs:
             return True
-        
+
         matched = 0
         missed = 0
         good_list = []
@@ -355,7 +367,7 @@ class ExecAttrs(object):
                     localname = local_seqs[fqname]
                 else:
                     # should not happen
-                    raise Exception("bug: lost table: "+v)
+                    raise Exception("bug: lost table: " + v)
                 qdest = skytools.quote_fqident(localname)
                 sql = sql.replace(repname, qdest)
         return sql

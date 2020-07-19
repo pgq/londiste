@@ -1,18 +1,18 @@
 """Londiste launcher.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
-import sys
 import optparse
+import sys
 
 import skytools
-import pgq.cascade.admin
 
+import pgq.cascade.admin
+from londiste.admin import LondisteSetup
+from londiste.compare import Comparator
 from londiste.playback import Replicator
 from londiste.repair import Repairer
-from londiste.compare import Comparator
-from londiste.admin import LondisteSetup
 from londiste.table_copy import CopyTable
 
 command_usage = pgq.cascade.admin.command_usage + """
@@ -57,6 +57,7 @@ cmd_handlers = (
     (('copy',), CopyTable),
 )
 
+
 class Londiste(skytools.DBScript):
     def __init__(self, args):
         self.full_args = args
@@ -89,92 +90,94 @@ class Londiste(skytools.DBScript):
 
         g = optparse.OptionGroup(p, "options for cascading")
         g.add_option("--provider",
-                help="init: upstream node temp connect string")
+                     help="init: upstream node temp connect string")
         g.add_option("--target", metavar="NODE",
-                help="switchover: target node")
+                     help="switchover: target node")
         g.add_option("--merge", metavar="QUEUE",
-                help="create-leaf: combined queue name")
+                     help="create-leaf: combined queue name")
         g.add_option("--dead", metavar="NODE", action='append',
-                help="cascade: assume node is dead")
+                     help="cascade: assume node is dead")
         g.add_option("--dead-root", action='store_true',
-                help="takeover: old node was root")
+                     help="takeover: old node was root")
         g.add_option("--nocheck", action='store_true',
-                help="create: skip public connect string check")
+                     help="create: skip public connect string check")
         g.add_option("--dead-branch", action='store_true',
-                help="takeover: old node was branch")
+                     help="takeover: old node was branch")
         g.add_option("--sync-watermark", metavar="NODES",
-                help="create-branch: list of node names to sync wm with")
+                     help="create-branch: list of node names to sync wm with")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "repair queue position")
         g.add_option("--rewind", action="store_true",
-                help="change queue position according to destination")
+                     help="change queue position according to destination")
         g.add_option("--reset", action="store_true",
-                help="reset queue position on destination side")
+                     help="reset queue position on destination side")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "options for add")
         g.add_option("--all", action="store_true",
-                help="add: include all possible tables")
+                     help="add: include all possible tables")
         g.add_option("--wait-sync", action="store_true",
-                help="add: wait until all tables are in sync")
+                     help="add: wait until all tables are in sync")
         g.add_option("--dest-table", metavar="NAME",
-                help="add: redirect changes to different table")
+                     help="add: redirect changes to different table")
         g.add_option("--expect-sync", action="store_true", dest="expect_sync",
-                help="add: no copy needed", default=False)
+                     help="add: no copy needed", default=False)
         g.add_option("--skip-truncate", action="store_true", dest="skip_truncate",
-                help="add: keep old data", default=False)
+                     help="add: keep old data", default=False)
         g.add_option("--create", action="store_true",
-                help="add: create table/seq if not exist, with minimal schema")
+                     help="add: create table/seq if not exist, with minimal schema")
         g.add_option("--create-full", action="store_true",
-                help="add: create table/seq if not exist, with full schema")
+                     help="add: create table/seq if not exist, with full schema")
         g.add_option("--trigger-flags",
-                help="add: set trigger flags (BAIUDLQ)")
+                     help="add: set trigger flags (BAIUDLQ)")
         g.add_option("--trigger-arg", action="append",
-                help="add: custom trigger arg (can be specified multiple times)")
+                     help="add: custom trigger arg (can be specified multiple times)")
         g.add_option("--no-triggers", action="store_true",
-                help="add: do not put triggers on table (makes sense on leaf)")
+                     help="add: do not put triggers on table (makes sense on leaf)")
         g.add_option("--handler", action="store",
-                help="add: custom handler for table")
+                     help="add: custom handler for table")
         g.add_option("--handler-arg", action="append",
-                help="add: argument to custom handler")
+                     help="add: argument to custom handler")
         g.add_option("--find-copy-node", dest="find_copy_node", action="store_true",
-                help="add: walk upstream to find node to copy from")
+                     help="add: walk upstream to find node to copy from")
         g.add_option("--copy-node", metavar="NODE", dest="copy_node",
-                help="add: use NODE as source for initial COPY")
+                     help="add: use NODE as source for initial COPY")
         g.add_option("--merge-all", action="store_true",
-                help="merge tables from all source queues", default=False)
+                     help="merge tables from all source queues", default=False)
         g.add_option("--no-merge", action="store_true",
-                help="don't merge tables from source queues", default=False)
+                     help="don't merge tables from source queues", default=False)
         g.add_option("--max-parallel-copy", metavar="NUM", type="int",
-                help="max number of parallel copy processes")
+                     help="max number of parallel copy processes")
         g.add_option("--skip-non-existing", action="store_true",
-                help="add: skip object that does not exist")
+                     help="add: skip object that does not exist")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "options for tables")
         g.add_option("--names-only", action="store_true",
-                help="tables: show only table names (for scripting)")
+                     help="tables: show only table names (for scripting)")
         p.add_option_group(g)
 
         g = optparse.OptionGroup(p, "other options")
         g.add_option("--force", action="store_true",
-                help="add: ignore table differences, repair: ignore lag")
+                     help="add: ignore table differences, repair: ignore lag")
         g.add_option("--apply", action="store_true",
-                help="repair: apply fixes automatically")
+                     help="repair: apply fixes automatically")
         g.add_option("--count-only", action="store_true",
-                help="compare: just count rows, do not compare data")
+                     help="compare: just count rows, do not compare data")
         g.add_option("--sort-bufsize", action="store",
-                help="repair: set coreutils sort bufsize (default: 30%)")
+                     help="repair: set coreutils sort bufsize (default: 30%)")
         g.add_option("--repair-where", action="store",
-                help="repair: use where condition to filter rows for repair")
+                     help="repair: use where condition to filter rows for repair")
         p.add_option_group(g)
 
         return p
 
+
 def main():
     script = Londiste(sys.argv[1:])
     script.start()
+
 
 if __name__ == '__main__':
     main()

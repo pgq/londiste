@@ -1,15 +1,16 @@
 """Catch moment when tables are in sync on master and slave.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import sys
 import time
+
 import skytools
 
 from londiste.handler import build_handler, load_handler_modules
-
 from londiste.util import find_copy_source
+
 
 class ATable(object):
     def __init__(self, row):
@@ -20,6 +21,7 @@ class ATable(object):
         self.table_attrs = skytools.db_urldecode(attrs)
         hstr = self.table_attrs.get('handler', '')
         self.plugin = build_handler(self.table_name, hstr, row['dest_table'])
+
 
 class Syncer(skytools.DBScript):
     """Walks tables in primary key order and checks if data matches."""
@@ -80,7 +82,7 @@ class Syncer(skytools.DBScript):
 
         setup_curs = setup_db.cursor()
         c = 0
-        while 1:
+        while True:
             q = "select * from pgq_node.get_consumer_state(%s, %s)"
             res = self.exec_cmd(dst_db, q, [self.queue_name, self.consumer_name])
             completed_tick = res[0]['completed_tick']
@@ -214,7 +216,7 @@ class Syncer(skytools.DBScript):
             return cur_pos
 
         #start = time.time()
-        while 1:
+        while True:
             time.sleep(0.5)
             setup_curs.execute(q, [self.queue_name])
             res = setup_curs.fetchone()
@@ -294,7 +296,7 @@ class Syncer(skytools.DBScript):
         self.force_tick(setup_curs)
 
         # now wait
-        while 1:
+        while True:
             time.sleep(0.5)
 
             q = "select * from pgq_node.get_node_info(%s)"
@@ -324,7 +326,7 @@ class Syncer(skytools.DBScript):
         tick_id = self.force_tick(setup_curs, False)
 
         # now wait
-        while 1:
+        while True:
             time.sleep(0.5)
 
             q = "select * from pgq_node.get_node_info(%s)"
@@ -372,10 +374,11 @@ class Syncer(skytools.DBScript):
         q = "select * from pgq_node.set_consumer_paused(%s, %s, %s)"
         self.exec_cmd(curs, q, [self.queue_name, cons_name, flag])
 
-        while 1:
+        while True:
             q = "select * from pgq_node.get_consumer_state(%s, %s)"
             res = self.exec_cmd(curs, q, [self.queue_name, cons_name])
             if res[0]['uptodate']:
                 break
             time.sleep(0.5)
         return oldflag
+

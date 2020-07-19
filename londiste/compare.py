@@ -3,14 +3,16 @@
 Currently just does count(1) on both sides.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import sys
+
 import skytools
 
 from londiste.syncer import Syncer
 
 __all__ = ['Comparator']
+
 
 class Comparator(Syncer):
     """Simple checker based on Syncer.
@@ -124,6 +126,8 @@ class Comparator(Syncer):
         p.add_option("--count-only", action="store_true", help="just count rows, do not compare data")
         return p
 
+
 if __name__ == '__main__':
     script = Comparator(sys.argv[1:])
     script.start()
+

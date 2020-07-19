@@ -15,8 +15,9 @@ import json
 import uuid
 from hashlib import blake2s
 
-import yaml
 import skytools
+import yaml
+
 from londiste.handler import TableHandler
 
 __all__ = ['Obfuscator']
@@ -30,6 +31,7 @@ HASH32 = 'hash32'
 HASH64 = 'hash64'
 HASH128 = 'hash'
 SKIP = 'skip'
+
 
 def as_bytes(data):
     """Convert input string or json value into bytes.
@@ -48,6 +50,7 @@ def as_bytes(data):
     # no point hashing str() of list or dict
     raise ValueError('Invalid input type for hashing: %s' % type(data))
 
+
 def hash32(data):
     """Returns hash as 32-bit signed int.
     """
@@ -56,6 +59,7 @@ def hash32(data):
     hash_bytes = blake2s(as_bytes(data), digest_size=4, key=_KEY).digest()
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
+
 def hash64(data):
     """Returns hash as 64-bit signed int.
     """
@@ -63,6 +67,7 @@ def hash64(data):
         return None
     hash_bytes = blake2s(as_bytes(data), digest_size=8, key=_KEY).digest()
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
+
 
 def hash128(data):
     """Returns hash as 128-bit variant 0 uuid.
@@ -97,6 +102,7 @@ def obf_vals_to_data(obf_vals):
     vals = [skytools.quote_copy(value) for value in obf_vals]
     obf_data = '\t'.join(vals) + '\n'
     return obf_data
+
 
 def obf_json(json_data, rule_data):
     """JSON cleanup.
@@ -137,6 +143,7 @@ def obf_json(json_data, rule_data):
     if rule_data == HASH128:
         return hash128(json_data)
     raise ValueError('Invalid rule value: %r' % rule_data)
+
 
 class Obfuscator(TableHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.
@@ -263,8 +270,10 @@ class Obfuscator(TableHandler):
                                   dst_tablename=self.dest_table,
                                   write_hook=_write_hook)
 
+
 __londiste_handlers__ = [Obfuscator]
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
