@@ -1,8 +1,6 @@
 """Londiste setup and sanity checker.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import os
 import re
 import sys

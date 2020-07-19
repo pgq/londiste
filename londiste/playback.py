@@ -1,6 +1,5 @@
-"""Basic replication core."""
-
-from __future__ import absolute_import, division, print_function
+"""Basic replication core.
+"""
 
 import os
 import sys
@@ -31,7 +30,7 @@ SYNC_EXIT = 2  # nothing to do, exit script
 MAX_PARALLEL_COPY = 8  # default number of allowed max parallel copy processes
 
 
-class Counter(object):
+class Counter:
     """Counts table statuses."""
 
     missing = 0
@@ -61,7 +60,7 @@ class Counter(object):
         return self.copy + self.catching_up + self.wanna_sync + self.do_sync
 
 
-class TableState(object):
+class TableState:
     """Keeps state about one table."""
     def __init__(self, name, log):
         """Init TableState for one table."""

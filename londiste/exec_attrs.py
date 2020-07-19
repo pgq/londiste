@@ -87,14 +87,12 @@ alter table other."Bar";
 alter table "Other"."Foo";
 """
 
-from __future__ import absolute_import, division, print_function
-
 import skytools
 
 META_PREFIX = "--*--"
 
 
-class Matcher(object):
+class Matcher:
     nice_name = None
     def match(self, objname, curs, tables, seqs):
         pass
@@ -186,7 +184,7 @@ class ExecAttrsException(skytools.UsageError):
     """Some parsing problem."""
 
 
-class ExecAttrs(object):
+class ExecAttrs:
     """Container and parser for EXECUTE attributes."""
     def __init__(self, sql=None, urlenc=None):
         """Create container and parse either sql or urlenc string."""

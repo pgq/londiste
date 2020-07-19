@@ -7,8 +7,6 @@ expect-sync option.
 NB! needs merge_on_time function to be compiled on database first.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import skytools
 
 from londiste.handlers import update

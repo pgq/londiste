@@ -1,8 +1,6 @@
 """Catch moment when tables are in sync on master and slave.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import sys
 import time
 
@@ -12,7 +10,7 @@ from londiste.handler import build_handler, load_handler_modules
 from londiste.util import find_copy_source
 
 
-class ATable(object):
+class ATable:
     def __init__(self, row):
         self.table_name = row['table_name']
         self.dest_table = row['dest_table'] or row['table_name']

@@ -1,5 +1,4 @@
-"""
-Bulk loading into OLAP database.
+"""Bulk loading into OLAP database.
 
 To use set in londiste.ini:
 
@@ -43,7 +42,7 @@ USE_LONGLIVED_TEMP_TABLES = True
 USE_REAL_TABLE = False
 
 
-class BulkEvent(object):
+class BulkEvent:
     """Helper class for BulkLoader to store relevant data."""
     __slots__ = ('op', 'data', 'pk_data')
 

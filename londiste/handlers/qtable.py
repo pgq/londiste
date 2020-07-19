@@ -1,4 +1,4 @@
-"""
+"""Set up table that sends inserts to queue.
 
 Handlers:
 
@@ -11,8 +11,6 @@ qsplitter  - dummy handler to setup queue tables. All events are ignored. Table
              destination queue, specified with handler arg 'queue'.
 
 """
-
-from __future__ import absolute_import, division, print_function
 
 import pgq
 from londiste.handler import BaseHandler

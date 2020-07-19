@@ -1,5 +1,4 @@
-"""
-Send all events to a DB function.
+"""Send all events to a DB function.
 """
 
 import skytools

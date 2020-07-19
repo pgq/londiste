@@ -4,8 +4,6 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import json
 import logging
 import sys
@@ -44,7 +42,7 @@ __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
            'load_handler_modules', 'create_handler_string']
 
 
-class RowCache(object):
+class RowCache:
     def __init__(self, table_name):
         self.table_name = table_name
         self.keys = {}
@@ -73,7 +71,7 @@ class RowCache(object):
         skytools.magic_insert(curs, self.table_name, self.rows, fields)
 
 
-class BaseHandler(object):
+class BaseHandler:
     """Defines base API, does nothing.
     """
     handler_name = 'nop'
@@ -285,7 +283,7 @@ class TableHandler(BaseHandler):
 # ENCODING VALIDATOR
 #------------------------------------------------------------------------------
 
-class EncodingValidator(object):
+class EncodingValidator:
     def __init__(self, log, encoding='utf-8', replacement=u'\ufffd'):
         """validates the correctness of given encoding. when data contains
         illegal symbols, replaces them with <replacement> and logs the

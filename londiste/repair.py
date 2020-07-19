@@ -3,8 +3,6 @@
 Walks tables by primary key and searches for missing inserts/updates/deletes.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import os
 import subprocess
 import sys

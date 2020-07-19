@@ -3,8 +3,6 @@
 Currently just does count(1) on both sides.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import sys
 
 import skytools
