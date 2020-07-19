@@ -93,7 +93,7 @@ def data_to_dict(data, column_list):
         self.log.warning('Unexpected line from copy without end of line.')
 
     vals = [skytools.unescape_copy(value) for value in data.split('\t')]
-    row = {name: value for name, value in zip(column_list, vals)}
+    row = dict(zip(column_list, vals))
     return row
 
 def obf_vals_to_data(obf_vals):

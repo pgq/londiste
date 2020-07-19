@@ -141,6 +141,7 @@ class TableState:
             return 'do-sync:%d' % self.sync_tick_id
         elif self.state == TABLE_OK:
             return 'ok'
+        return None
 
     def parse_state(self, merge_state):
         """Read state from string."""
@@ -256,7 +257,7 @@ class TableState:
                 return
         else:
             if self.state != TABLE_OK:
-                return False
+                return
 
         # aquire last tick
         if not self.last_snapshot_tick:

@@ -62,7 +62,7 @@ class RowCache:
 
     def get_fields(self):
         row = [None] * len(self.keys)
-        for k, i in self.keys.keys():
+        for k, i in self.keys.items():
             row[i] = k
         return tuple(row)
 

@@ -339,7 +339,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
 
     def insert(self, curs):
         sql = "insert into %s (%s) select %s from %s" % (self.qtable, self._cols(), self._cols(), self.qtemp)
-        return self.logexec(curs, sql)
+        self.logexec(curs, sql)
 
     def update(self, curs):
         qcols = [quote_ident(c) for c in self.nonkeys()]
@@ -353,27 +353,27 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         _set = ", ".join(eqlist)
 
         sql = "update only %s set %s from %s as t where %s" % (self.qtable, _set, self.qtemp, self._where())
-        return self.logexec(curs, sql)
+        self.logexec(curs, sql)
 
     def delete(self, curs):
         sql = "delete from only %s using %s as t where %s" % (self.qtable, self.qtemp, self._where())
-        return self.logexec(curs, sql)
+        self.logexec(curs, sql)
 
     def truncate(self, curs):
-        return self.logexec(curs, "truncate %s" % self.qtemp)
+        self.logexec(curs, "truncate %s" % self.qtemp)
 
     def drop(self, curs):
-        return self.logexec(curs, "drop table %s" % self.qtemp)
+        self.logexec(curs, "drop table %s" % self.qtemp)
 
     def create(self, curs):
         if USE_REAL_TABLE:
             tmpl = "create table %s (like %s)"
         else:
             tmpl = "create temp table %s (like %s) on commit preserve rows"
-        return self.logexec(curs, tmpl % (self.qtemp, self.qtable))
+        self.logexec(curs, tmpl % (self.qtemp, self.qtable))
 
     def analyze(self, curs):
-        return self.logexec(curs, "analyze %s" % self.qtemp)
+        self.logexec(curs, "analyze %s" % self.qtemp)
 
     def process(self, op, row):
         super(BaseBulkTempLoader, self).process(op, row)
@@ -720,11 +720,6 @@ class Dispatcher(ShardHandler):
     def _validate_hash_key(self):
         pass  # no need for hash key when not sharding
 
-    def reset(self):
-        """Called before starting to process a batch.
-        Should clean any pending data."""
-        super(Dispatcher, self).reset()
-
     def prepare_batch(self, batch_info, dst_curs):
         """Called on first event for this table in current batch."""
         if self.conf.table_mode != 'ignore':
@@ -936,11 +931,6 @@ class Dispatcher(ShardHandler):
         if res:
             self.log.info("Ignored table: %s", partition_table)
         return res
-
-    def get_copy_condition(self, src_curs, dst_curs):
-        """ Prepare where condition for copy and replay filtering.
-        """
-        return super(Dispatcher, self).get_copy_condition(src_curs, dst_curs)
 
     def real_copy(self, tablename, src_curs, dst_curs, column_list):
         """do actual table copy and return tuple with number of bytes and rows

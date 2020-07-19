@@ -430,7 +430,7 @@ class LondisteSetup(CascadeAdmin):
                 self.log.warning('Sequence "%s" missing on local node, skipping', seq)
                 return
             else:
-                raise skytools.UsageError("Sequence %r missing on local node", seq)
+                raise skytools.UsageError("Sequence %r missing on local node" % (seq,))
 
         q = "select * from londiste.local_add_seq(%s, %s)"
         self.exec_cmd(dst_curs, q, [self.set_name, seq])
@@ -609,7 +609,7 @@ class LondisteSetup(CascadeAdmin):
             source_node = self.options.copy_node
             m = self.queue_info.get_member(source_node)
             if not m:
-                raise skytools.UsageError("Cannot find node <%s>", source_node)
+                raise skytools.UsageError("Cannot find node <%s>" % (source_node,))
             if source_node == self.local_node:
                 raise skytools.UsageError("Cannot use itself as provider")
             self.provider_location = m.location
