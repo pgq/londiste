@@ -79,6 +79,25 @@ def hash128(data):
 
     return str(uuid.UUID(int=hash_int))
 
+def data_to_dict(data, column_list):
+    """Convert data received from copy to dict
+    """
+    if data[-1] == '\n':
+        data = data[:-1]
+    else:
+        self.log.warning('Unexpected line from copy without end of line.')
+
+    vals = [skytools.unescape_copy(value) for value in data.split('\t')]
+    row = {name: value for name, value in zip(column_list, vals)}
+    return row
+
+def obf_vals_to_data(obf_vals):
+    """Converts obfuscated values back to copy data
+    """
+    vals = [skytools.quote_copy(value) for value in obf_vals]
+    obf_data = '\t'.join(vals) + '\n'
+    return obf_data
+
 def obf_json(json_data, rule_data):
     """JSON cleanup.
 
@@ -186,24 +205,16 @@ class Obfuscator(TableHandler):
     def obf_copy_row(self, data, column_list, src_tablename):
         """Apply obfuscation to one row
         """
-        if data[-1] == '\n':
-            data = data[:-1]
-        else:
-            self.log.warning('Unexpected line from copy without end of line.')
-
-        vals = data.split('\t')
-
-        row = {name: value for name, value in zip(column_list, vals)}
+        row = data_to_dict(data, column_list)
         obf_col_map = self._get_map(src_tablename, row)
 
         obf_vals = []
-        for field, value in zip(column_list, vals):
+        for field, value in row.items():
             action = obf_col_map.get(field, SKIP)
 
             if isinstance(action, dict):
-                str_val = skytools.unescape_copy(value)
-                obf_val = self.obf_json(str_val, action)
-                obf_vals.append(skytools.quote_copy(obf_val))
+                obf_val = self.obf_json(value, action)
+                obf_vals.append(obf_val)
                 continue
             elif action == KEEP:
                 obf_vals.append(value)
@@ -211,24 +222,24 @@ class Obfuscator(TableHandler):
             elif action == SKIP:
                 continue
 
-            str_val = skytools.unescape_copy(value)
-            if str_val is None:
+            if value is None:
                 obf_vals.append(value)
             elif action == BOOL:
-                obf_val = str(bool(str_val) and 't' or 'f')
+                obf_val = str(bool(value) and 't' or 'f')
                 obf_vals.append(obf_val)
             elif action == HASH32:
-                obf_val = str(hash32(str_val))
+                obf_val = str(hash32(value))
                 obf_vals.append(obf_val)
             elif action == HASH64:
-                obf_val = str(hash64(str_val))
+                obf_val = str(hash64(value))
                 obf_vals.append(obf_val)
             elif action == HASH128:
-                obf_val = hash128(str_val)
+                obf_val = hash128(value)
                 obf_vals.append(obf_val)
             else:
                 raise ValueError('Invalid value for action: %s' % action)
-        obf_data = '\t'.join(obf_vals) + '\n'
+
+        obf_data = obf_vals_to_data(obf_vals)
         return obf_data
 
     def real_copy(self, src_tablename, src_curs, dst_curs, column_list):
