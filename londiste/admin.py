@@ -7,10 +7,14 @@ import sys
 
 import skytools
 
-import londiste.handler
-from londiste.exec_attrs import ExecAttrs
-from londiste.util import find_copy_source
 from pgq.cascade.admin import CascadeAdmin
+
+from .exec_attrs import ExecAttrs
+from .handler import (
+    create_handler_string, build_handler, load_handler_modules,
+    show as show_handlers,
+)
+from .util import find_copy_source
 
 __all__ = ['LondisteSetup']
 
@@ -44,7 +48,7 @@ class LondisteSetup(CascadeAdmin):
 
         self.lock_timeout = self.cf.getfloat('lock_timeout', 10)
 
-        londiste.handler.load_handler_modules(self.cf)
+        load_handler_modules(self.cf)
 
     def init_optparse(self, parser=None):
         """Add londiste switches to CascadeAdmin ones."""
@@ -292,17 +296,15 @@ class LondisteSetup(CascadeAdmin):
 
     def build_handler(self, tbl, tgargs, dest_table=None):
         """Build handler and return handler string"""
-        hstr = londiste.handler.create_handler_string(
-            self.options.handler, self.options.handler_arg)
-        p = londiste.handler.build_handler(tbl, hstr, dest_table)
+        hstr = create_handler_string(self.options.handler, self.options.handler_arg)
+        p = build_handler(tbl, hstr, dest_table)
         p.add(tgargs)
         return hstr
 
     def handler_needs_table(self):
         if self.options.handler:
-            hstr = londiste.handler.create_handler_string(
-                self.options.handler, self.options.handler_arg)
-            p = londiste.handler.build_handler('unused.string', hstr, None)
+            hstr = create_handler_string(self.options.handler, self.options.handler_arg)
+            p = build_handler('unused.string', hstr, None)
             return p.needs_table()
         return True
 
@@ -560,7 +562,7 @@ class LondisteSetup(CascadeAdmin):
 
     def cmd_show_handlers(self, *args):
         """Show help about handlers."""
-        londiste.handler.show(args)
+        show_handlers(args)
 
     def cmd_execute(self, *files):
         db = self.get_database('db')

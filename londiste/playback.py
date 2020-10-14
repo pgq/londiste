@@ -7,9 +7,10 @@ import time
 
 import skytools
 
-from londiste.exec_attrs import ExecAttrs
-from londiste.handler import build_handler, load_handler_modules
 from pgq.cascade.worker import CascadedWorker
+
+from .exec_attrs import ExecAttrs
+from .handler import build_handler, load_handler_modules
 
 __all__ = ['Replicator', 'TableState',
            'TABLE_MISSING', 'TABLE_IN_COPY', 'TABLE_CATCHING_UP',
