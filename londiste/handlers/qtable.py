@@ -54,7 +54,7 @@ class QueueSplitterHandler(BaseHandler):
         try:
             self.dst_queue_name = args['queue']
         except KeyError:
-            raise Exception('specify queue with handler-arg')
+            raise Exception('specify queue with handler-arg') from None
         self.rows = []
 
     def add(self, trigger_arg_list):

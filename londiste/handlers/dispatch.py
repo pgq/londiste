@@ -276,7 +276,7 @@ class BaseBulkCollectingLoader(BaseLoader):
             if len(pk_data) == len(row) and _op == 'U':
                 del self.pkey_ev_map[pk_data]
         except KeyError:
-            raise Exception('unknown event type: %s' % op)
+            raise Exception('unknown event type: %s' % op) from None
 
     def collect_data(self):
         """Collects list of rows into operation hashed dict
@@ -570,7 +570,7 @@ class RowHandler:
         try:
             self.table_map[table].process(op, row)
         except KeyError:
-            raise Exception("No loader for table %s" % table)
+            raise Exception("No loader for table %s" % table) from None
 
     def flush(self, curs):
         for ldr in self.table_map.values():
