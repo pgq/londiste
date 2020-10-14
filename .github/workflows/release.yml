@@ -1,0 +1,74 @@
+#
+# https://docs.github.com/en/actions/reference
+# https://github.com/actions
+#
+
+name: REL
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-20.04
+    steps:
+
+      - name: Checkout code
+        id: checkout
+        uses: actions/checkout@v2
+
+      - name: "Setup Python"
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+
+      - name: Build tarball
+        id: build
+        run: |
+          python -m pip install setuptools wheel
+          echo "::group::sdist"
+          PACKAGE=$(python setup.py --name)
+          VERSION=$(python setup.py --version)
+          TGZ="${PACKAGE}-${VERSION}.tar.gz"
+          test "${{github.ref}}" = "refs/tags/v${VERSION}" || { echo "ERR: tag mismatch"; exit 1; }
+          python setup.py sdist
+          test -f "dist/${TGZ}" || { echo "ERR: sdist failed"; exit 1; }
+          echo "PACKAGE=${PACKAGE}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "TGZ=${TGZ}" >> $GITHUB_ENV
+          echo "::endgroup::"
+
+      - name: Prepare release notes
+        id: notes
+        run: |
+          mkdir -p tmp
+          awk -v VER="${{env.VERSION}}" '
+          /^## [-_0-9a-zA-Z]+ v?[0-9]/ { if ($3 == VER) { good = 1; next; } else { good = 0; } }
+          { if (good) { print $0; } }' NEWS.md > tmp/note.md
+          cat tmp/note.md
+
+      - name: Create release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{github.ref}}
+          release_name: ${{env.PACKAGE}} v${{env.VERSION}}
+          body_path: tmp/note.md
+          prerelease: ${{contains(env.VERSION, 'a') || contains(env.VERSION, 'b') || contains(env.VERSION, 'rc')}}
+          draft: false
+
+      - name: Upload source
+        id: upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.release.outputs.upload_url}}
+          asset_path: dist/${{env.TGZ}}
+          asset_name: ${{env.TGZ}}
+          asset_content_type: application/x-gzip
+

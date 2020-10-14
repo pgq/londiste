@@ -20,3 +20,9 @@ debian/python3-*
 MANIFEST
 build
 tmp
+
+conf
+log
+pid
+*.log
+*.pid

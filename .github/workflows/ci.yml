@@ -1,0 +1,123 @@
+#
+# https://docs.github.com/en/actions/reference
+# https://github.com/actions
+#
+
+name: CI
+
+on:
+  pull_request: {}
+  push: {}
+
+jobs:
+
+  pylint:
+    name: "PyLint"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test:
+          - {PY: "3.8", TOXENV: "lint"}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+
+      - name: "Setup Python ${{matrix.test.PY}}"
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{matrix.test.PY}}
+
+      - name: "Install tox"
+        run: python -m pip -q install tox
+
+      - name: "Run checker"
+        env:
+           TOXENV: ${{matrix.test.TOXENV}}
+        run: python -m tox -r
+
+  database:
+    name: "Python ${{matrix.test.PY}} + PostgreSQL ${{matrix.test.PG}}"
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        test:
+          - {PY: "3.8", PG: "12", TOXENV: "py38"}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+
+      - name: "Setup Python ${{matrix.test.PY}}"
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{matrix.test.PY}}
+
+      - name: "Install tox"
+        run: |
+          python -m pip -q install tox
+
+      - name: "InstallDB"
+        run: |
+          echo "::group::apt-get-update"
+          echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main ${{matrix.test.PG}}" \
+          | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo -nH apt-get -q update
+          echo "::endgroup::"
+
+          echo "::group::apt-get-install"
+
+          # disable new cluster creation
+          sudo -nH mkdir -p /etc/postgresql-common/createcluster.d
+          echo "create_main_cluster = false" | sudo -nH tee /etc/postgresql-common/createcluster.d/no-main.conf
+
+          sudo -nH apt-get -qyu install postgresql-${{matrix.test.PG}} postgresql-server-dev-${{matrix.test.PG}} pgqd
+          echo "::endgroup::"
+
+          # tune environment
+          echo "/usr/lib/postgresql/${{matrix.test.PG}}/bin" >> $GITHUB_PATH
+          echo "PGHOST=/tmp" >> $GITHUB_ENV
+
+      - name: "Install extensions"
+        run: |
+          echo "::group::install-pgq"
+          git clone -q https://github.com/pgq/pgq; make -C pgq
+          sudo -nH bash -c "PATH='${PATH}' make install -C pgq"
+          echo "::endgroup::"
+
+          echo "::group::install-pgq-node"
+          git clone -q https://github.com/pgq/pgq-node; make -C pgq-node
+          sudo -nH bash -c "PATH='${PATH}' make install -C pgq-node"
+          echo "::endgroup::"
+
+          echo "::group::install-londiste"
+          git clone -q https://github.com/pgq/londiste-sql; make -C londiste-sql
+          sudo -nH bash -c "PATH='${PATH}' make install -C londiste-sql"
+          echo "::endgroup::"
+
+      - name: "StartDB"
+        run: |
+          rm -rf data log
+          mkdir -p log
+          LANG=C initdb data
+          sed -ri -e "s,^[# ]*(unix_socket_directories).*,\\1='/tmp'," data/postgresql.conf
+          pg_ctl -D data -l log/pg.log start || { cat log/pg.log ; exit 1; }
+          sleep 1
+
+      - name: "CreateDB"
+        run: |
+          psql -d postgres -c "create database testdb"
+          psql -d testdb -c "create extension pgq; create extension pgq_node;"
+          psql -d testdb -c "select pgq.create_queue('testq')"
+
+      - name: "Test"
+        env:
+          TOXENV: ${{matrix.test.TOXENV}}
+          TEST_Q_NAME: testq
+          PGDATABASE: testdb
+        run: |
+          python -m tox -r -- --color=yes
+
+      - name: "StopDB"
+        run: |
+          pg_ctl -D data stop
+          rm -rf data log /tmp/.s.PGSQL*
+
