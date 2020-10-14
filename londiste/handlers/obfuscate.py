@@ -89,8 +89,6 @@ def data_to_dict(data, column_list):
     """
     if data[-1] == '\n':
         data = data[:-1]
-    else:
-        self.log.warning('Unexpected line from copy without end of line.')
 
     vals = [skytools.unescape_copy(value) for value in data.split('\t')]
     row = dict(zip(column_list, vals))
