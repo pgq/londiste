@@ -37,7 +37,7 @@ class ShardHandler(TableHandler):
     DEFAULT_HASHEXPR = "%s(%s)"
 
     def __init__(self, table_name, args, dest_table):
-        super(ShardHandler, self).__init__(table_name, args, dest_table)
+        super().__init__(table_name, args, dest_table)
         self.hash_mask = None   # aka max part number (atm)
         self.shard_nr = None    # part number of local node
 
@@ -60,20 +60,20 @@ class ShardHandler(TableHandler):
         """Forget config info."""
         self.hash_mask = None
         self.shard_nr = None
-        super(ShardHandler, self).reset()
+        super().reset()
 
     def add(self, trigger_arg_list):
         """Let trigger put hash into extra3"""
         arg = "ev_extra3='hash='||%s" % self.hashexpr
         trigger_arg_list.append(arg)
-        super(ShardHandler, self).add(trigger_arg_list)
+        super().add(trigger_arg_list)
 
     def prepare_batch(self, batch_info, dst_curs):
         """Called on first event for this table in current batch."""
         if self.hash_key is not None:
             if not self.hash_mask:
                 self.load_shard_info(dst_curs)
-        super(ShardHandler, self).prepare_batch(batch_info, dst_curs)
+        super().prepare_batch(batch_info, dst_curs)
 
     def process_event(self, ev, sql_queue_func, arg):
         """Filter event by hash in extra3, apply only if for local shard."""
@@ -88,12 +88,12 @@ class ShardHandler(TableHandler):
 
     def _process_event(self, ev, sql_queue_func, arg):
         self.log.debug('shard.process_event: my event, processing')
-        super(ShardHandler, self).process_event(ev, sql_queue_func, arg)
+        super().process_event(ev, sql_queue_func, arg)
 
     def get_copy_condition(self, src_curs, dst_curs):
         """Prepare the where condition for copy and replay filtering"""
         if self.hash_key is None:
-            return super(ShardHandler, self).get_copy_condition(src_curs, dst_curs)
+            return super().get_copy_condition(src_curs, dst_curs)
         self.load_shard_info(dst_curs)
         w = "(%s & %d) = %d" % (self.hashexpr, self.hash_mask, self.shard_nr)
         self.log.debug('shard: copy_condition=%r', w)

@@ -28,11 +28,11 @@ class LondisteSetup(CascadeAdmin):
             skytools.DBSchema("londiste", sql='create extension londiste'),
             #skytools.DBFunction("londiste.global_add_table", 2, sql_file='londiste.upgrade_2.1_to_3.1.sql'),
         ]
-        super(LondisteSetup, self).install_code(db)
+        super().install_code(db)
 
     def __init__(self, args):
         """Londiste setup init."""
-        super(LondisteSetup, self).__init__('londiste', 'db', args, worker_setup=True)
+        super().__init__('londiste', 'db', args, worker_setup=True)
 
         # compat
         self.queue_name = self.cf.get('pgq_queue_name', '')
@@ -49,7 +49,7 @@ class LondisteSetup(CascadeAdmin):
     def init_optparse(self, parser=None):
         """Add londiste switches to CascadeAdmin ones."""
 
-        p = super(LondisteSetup, self).init_optparse(parser)
+        p = super().init_optparse(parser)
         p.add_option("--expect-sync", action="store_true", dest="expect_sync",
                      help="no copy needed", default=False)
         p.add_option("--skip-truncate", action="store_true", dest="skip_truncate",
@@ -709,7 +709,7 @@ class LondisteSetup(CascadeAdmin):
     def load_extra_status(self, curs, node):
         """Fetch extra info."""
         # must be thread-safe (!)
-        super(LondisteSetup, self).load_extra_status(curs, node)
+        super().load_extra_status(curs, node)
         curs.execute("select * from londiste.get_table_list(%s)", [self.queue_name])
         n_ok = n_half = n_ign = 0
         for tbl in curs.fetchall():
@@ -775,7 +775,7 @@ class LondisteSetup(CascadeAdmin):
     def resurrect_dump_event(self, ev, stats, batch_info):
         """Collect per-table stats."""
 
-        super(LondisteSetup, self).resurrect_dump_event(ev, stats, batch_info)
+        super().resurrect_dump_event(ev, stats, batch_info)
 
         ROLLBACK = 'can rollback'
         NO_ROLLBACK = 'cannot rollback'

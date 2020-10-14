@@ -330,7 +330,7 @@ class Replicator(CascadedWorker):
 
     def __init__(self, args):
         """Replication init."""
-        super(Replicator, self).__init__('londiste', 'db', args)
+        super().__init__('londiste', 'db', args)
 
         self.table_list = []
         self.table_map = {}
@@ -346,7 +346,7 @@ class Replicator(CascadedWorker):
         self.consumer_filter = None
 
     def reload(self):
-        super(Replicator, self).reload()
+        super().reload()
 
         load_handler_modules(self.cf)
 
@@ -400,7 +400,7 @@ class Replicator(CascadedWorker):
         # the cascade-consumer can save last tick and commit.
 
         self.sql_list = []
-        super(Replicator, self).process_remote_batch(src_db, tick_id, ev_list, dst_db)
+        super().process_remote_batch(src_db, tick_id, ev_list, dst_db)
         self.flush_sql(dst_curs)
 
         for p in self.used_plugins.values():
@@ -652,7 +652,7 @@ class Replicator(CascadedWorker):
             self.flush_sql(dst_curs)
             self.update_seq(dst_curs, ev)
         else:
-            super(Replicator, self).process_remote_event(src_curs, dst_curs, ev)
+            super().process_remote_event(src_curs, dst_curs, ev)
 
         # no point keeping it around longer
         self.current_event = None
@@ -967,7 +967,7 @@ class Replicator(CascadedWorker):
     def process_root_node(self, dst_db):
         """On root node send seq changes to queue."""
 
-        super(Replicator, self).process_root_node(dst_db)
+        super().process_root_node(dst_db)
 
         q = "select * from londiste.root_check_seqs(%s)"
         self.exec_cmd(dst_db, q, [self.queue_name])
@@ -986,7 +986,7 @@ class Replicator(CascadedWorker):
         if filtered_copy:
             if ev.type[:9] in ('londiste.',):
                 return
-        super(Replicator, self).copy_event(dst_curs, ev, filtered_copy)
+        super().copy_event(dst_curs, ev, filtered_copy)
 
     def exception_hook(self, det, emsg):
         # add event info to error message
@@ -994,7 +994,7 @@ class Replicator(CascadedWorker):
             ev = self.current_event
             info = "[ev_id=%d,ev_txid=%d] " % (ev.ev_id, ev.ev_txid)
             emsg = info + emsg
-        super(Replicator, self).exception_hook(det, emsg)
+        super().exception_hook(det, emsg)
 
 
 if __name__ == '__main__':

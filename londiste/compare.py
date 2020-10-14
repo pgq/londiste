@@ -120,7 +120,7 @@ class Comparator(Syncer):
 
     def init_optparse(self, p=None):
         """Initialize cmdline switches."""
-        p = super(Comparator, self).init_optparse(p)
+        p = super().init_optparse(p)
         p.add_option("--count-only", action="store_true", help="just count rows, do not compare data")
         return p
 

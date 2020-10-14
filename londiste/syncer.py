@@ -34,7 +34,7 @@ class Syncer(skytools.DBScript):
 
     def __init__(self, args):
         """Syncer init."""
-        super(Syncer, self).__init__('londiste', args)
+        super().__init__('londiste', args)
         self.set_single_loop(1)
 
         # compat names
@@ -63,7 +63,7 @@ class Syncer(skytools.DBScript):
 
     def init_optparse(self, p=None):
         """Initialize cmdline switches."""
-        p = super(Syncer, self).init_optparse(p)
+        p = super().init_optparse(p)
         p.add_option("--force", action="store_true", help="ignore lag")
         return p
 

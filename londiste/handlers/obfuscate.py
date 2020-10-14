@@ -171,7 +171,7 @@ class Obfuscator(TableHandler):
 
         Returns either string (sql event) or dict (urlenc event).
         """
-        row = super(Obfuscator, self).parse_row_data(ev)
+        row = super().parse_row_data(ev)
 
         rule_data = self._get_map(self.table_name, row)
         dst = {}

@@ -34,7 +34,7 @@ class Repairer(Syncer):
 
     def init_optparse(self, p=None):
         """Initialize cmdline switches."""
-        p = super(Repairer, self).init_optparse(p)
+        p = super().init_optparse(p)
         p.add_option("--apply", action="store_true", help="apply fixes")
         p.add_option("--sort-bufsize", help="buffer for coreutils sort")
         p.add_option("--repair-where", help="where condition for selecting data")

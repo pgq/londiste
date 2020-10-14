@@ -60,7 +60,7 @@ class Londiste(skytools.DBScript):
     def __init__(self, args):
         self.full_args = args
 
-        super(Londiste, self).__init__('londiste', args)
+        super().__init__('londiste', args)
 
         if len(self.args) < 2:
             print("need command")
@@ -83,7 +83,7 @@ class Londiste(skytools.DBScript):
         Replicator(self.full_args)
 
     def init_optparse(self, parser=None):
-        p = super(Londiste, self).init_optparse(parser)
+        p = super().init_optparse(parser)
         p.set_usage(command_usage.strip())
 
         g = optparse.OptionGroup(p, "options for cascading")
