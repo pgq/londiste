@@ -21,6 +21,8 @@ MANIFEST
 build
 tmp
 
+dist
+
 conf
 log
 pid
