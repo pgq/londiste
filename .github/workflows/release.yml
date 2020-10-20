@@ -90,10 +90,10 @@ jobs:
           pip install --disable-pip-version-check -U twine
           ls -l dist
           if test "${DRAFT}" = "false"; then
-            python -m twine upload -u __token__ -p ${PYPI_TOKEN} \
+            python -m twine upload -u "__token__" -p "${PYPI_TOKEN}" \
               --repository pypi --disable-progress-bar dist/*
           else
-            python -m twine upload -u __token__ -p ${PYPI_TEST_TOKEN} \
+            python -m twine upload -u "__token__" -p "${PYPI_TEST_TOKEN}" \
               --repository testpypi --disable-progress-bar dist/*
           fi
 
