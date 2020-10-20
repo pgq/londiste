@@ -5,9 +5,13 @@ from setuptools import setup
 
 CLI_NAME = "londiste"
 
+with open("README.rst") as f:
+    ldesc = f.read().strip()
+
 setup(
     name="londiste",
     description="Database replication based on PgQ",
+    long_description=ldesc,
     url="https://github.com/pgq/londiste",
     license="ISC",
     version="3.5",
