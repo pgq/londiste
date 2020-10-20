@@ -2,7 +2,7 @@
 NEWS
 ====
 
-Londiste v3.5a2
+Londiste v3.5a3
 ---------------
 
 * test
