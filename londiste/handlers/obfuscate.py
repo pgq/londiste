@@ -20,6 +20,9 @@ import yaml
 
 from londiste.handler import TableHandler
 
+from pgq.event import Event
+
+
 __all__ = ['Obfuscator']
 
 _KEY = b''
@@ -267,6 +270,20 @@ class Obfuscator(TableHandler):
                                   column_list, condition,
                                   dst_tablename=self.dest_table,
                                   write_hook=_write_hook)
+
+    def get_copy_event(self, ev, queue_name):
+        row = self.parse_row_data(ev)
+
+        if len(ev.type) == 1:
+            ev_data = row
+        elif ev.data[0] == '{':
+            ev_data = skytools.json_encode(row)
+        else:
+            ev_data = skytools.db_urlencode(row)
+
+        ev_row = ev._event_row.copy()
+        ev_row['ev_data'] = ev_data
+        return Event(queue_name, ev_row)
 
 
 __londiste_handlers__ = [Obfuscator]
