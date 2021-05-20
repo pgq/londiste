@@ -2,7 +2,7 @@
 
 mkdir -p log pid conf
 
-../zstop.sh
+#../zstop.sh
 
 v=
 v=-v

@@ -1,0 +1,5 @@
+public.mytable:
+  id: keep
+  htext: hash
+  btext: bool
+  stext: skip
