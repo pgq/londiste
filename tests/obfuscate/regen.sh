@@ -80,7 +80,7 @@ msg "Add more data in root node"
 run_sql root "insert into mytable values (2, 'hdata2', 'bdata2', 'sdata2')"
 
 msg "Wait until table is in sync"
-run sleep 2
+run sleep 3
 
 msg "See data"
 run_sql root "select * from pgq.event_template where ev_extra1 = 'public.mytable'"
