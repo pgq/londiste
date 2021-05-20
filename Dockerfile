@@ -7,22 +7,19 @@ RUN pip3 install .
 
 ENV DEBIAN_FRONTEND="noninteractive"
 ENV PG=12
-RUN apt="apt-get -qq -y --no-install-recommends"; \
-	${apt} update; \
-	${apt} upgrade; \
-	${apt} install wget gnupg2 lsb-release git make gcc;
-
 RUN set -ex; \
+    apt="apt-get -qq -y --no-install-recommends"; \
+	${apt} update; \
+	${apt} install wget gnupg2 lsb-release git make gcc; \
+	${apt} dist-upgrade; \
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -; \
     echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main ${PG}" |  \
     tee /etc/apt/sources.list.d/pgdg.list; \
-    apt-get -q update;
-
-# disable new cluster creation
-RUN set -ex; \
+    ${apt} update; \
+    # disable new cluster creation
     mkdir -p /etc/postgresql-common/createcluster.d; \
     echo "create_main_cluster = false" | tee /etc/postgresql-common/createcluster.d/no-main.conf; \
-    apt-get -qyu install postgresql-${PG} postgresql-server-dev-${PG} pgqd;
+    ${apt} install postgresql-${PG} postgresql-server-dev-${PG} pgqd;
 
 ENV PATH="/usr/lib/postgresql/${PG}/bin:${PATH}"
 ENV PGHOST="/tmp"
