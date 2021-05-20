@@ -18,9 +18,8 @@ from hashlib import blake2s
 import skytools
 import yaml
 
-from londiste.handler import TableHandler
-
 from pgq.event import Event
+from londiste.handler import TableHandler
 
 
 __all__ = ['Obfuscator']
