@@ -40,10 +40,6 @@ RUN set -ex; \
     bash -c "PATH='${PATH}' make install -C londiste-sql";
 
 RUN set -ex; \
-    chown -R postgres:postgres "/var/lib/postgresql/${PGVER}"; \
-    chmod -R u+rwX,g-rwx,o-rwx "/var/lib/postgresql/${PGVER}"; \
-    chown -R postgres:postgres "/usr/share/postgresql/${PGVER}"; \
-    chmod -R u+rwX,g-rwx,o-rwx "/usr/share/postgresql/${PGVER}"; \
     chown -R postgres:postgres "."; \
     chmod -R u+rwX,g-rwx,o-rwx ".";
 
