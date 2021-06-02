@@ -33,6 +33,16 @@ SYNC_EXIT = 2  # nothing to do, exit script
 MAX_PARALLEL_COPY = 8  # default number of allowed max parallel copy processes
 
 
+def is_data_event(ev):
+    """Is it insert/update/delete for one table?
+    """
+    if ev.type in ('I', 'U', 'D'):
+        return True
+    elif ev.type[:2] in ('I:', 'U:', 'D:', '{"'):
+        return True
+    return False
+
+
 class Counter:
     """Counts table statuses."""
 
@@ -632,9 +642,7 @@ class Replicator(CascadedWorker):
         if self.work_state < 0:
             self.current_event = ev
 
-        if ev.type in ('I', 'U', 'D'):
-            self.handle_data_event(ev, dst_curs)
-        elif ev.type[:2] in ('I:', 'U:', 'D:', '{"'):
+        if is_data_event(ev):
             self.handle_data_event(ev, dst_curs)
         elif ev.type == "R":
             self.flush_sql(dst_curs)
@@ -985,24 +993,25 @@ class Replicator(CascadedWorker):
         self.exec_cmd(dst_curs, q, [self.queue_name, seq, val])
 
     def copy_event(self, dst_curs, ev, filtered_copy):
+        # filtered_copy means merge-leaf
         # send only data events down (skipping seqs also)
         if filtered_copy:
             if ev.type[:9] in ('londiste.',):
                 return
 
-        copy_ev = ev
+        if is_data_event(ev):
+            t = self.get_table_by_name(ev.extra1)
+            if t:
+                try:
+                    p = self.used_plugins[ev.extra1]
+                except KeyError:
+                    p = t.get_plugin()
+                    self.used_plugins[ev.extra1] = p
 
-        t = self.get_table_by_name(ev.extra1)
-        if t:
-            try:
-                p = self.used_plugins[ev.extra1]
-            except KeyError:
-                p = t.get_plugin()
-                self.used_plugins[ev.extra1] = p
+                # handler may rewrite the event
+                ev = p.get_copy_event(ev, self.queue_name)
 
-            copy_ev = p.get_copy_event(ev, self.queue_name)
-
-        super().copy_event(dst_curs, copy_ev, filtered_copy)
+        super().copy_event(dst_curs, ev, filtered_copy)
 
     def exception_hook(self, det, emsg):
         # add event info to error message
