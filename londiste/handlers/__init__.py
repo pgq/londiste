@@ -6,7 +6,11 @@ from __future__ import absolute_import, division, print_function
 import functools
 import sys
 
-DEFAULT_HANDLERS = []
+from typing import List
+
+import londiste.handler
+
+DEFAULT_HANDLERS: List["londiste.handler.BaseHandler"] = []
 
 
 def handler_args(name, cls):

@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+from typing import List
+
 import skytools
 
 from londiste.syncer import Syncer
@@ -27,8 +29,8 @@ class Repairer(Syncer):
     cnt_delete = 0
     total_src = 0
     total_dst = 0
-    pkey_list = []
-    common_fields = []
+    pkey_list: List[str] = []
+    common_fields: List[str] = []
     apply_curs = None
     fq_common_fields = None
 
@@ -98,9 +100,8 @@ class Repairer(Syncer):
     def do_sort(self, src, dst):
         """ Sort contents of src file, write them to dst file. """
 
-        p = subprocess.Popen(["sort", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        s_ver = p.communicate()[0].decode('utf8', 'replace')
-        del p
+        with subprocess.Popen(["sort", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+            s_ver = p.communicate()[0].decode('utf8', 'replace')
 
         xenv = os.environ.copy()
         xenv['LANG'] = 'C'
@@ -116,9 +117,9 @@ class Repairer(Syncer):
         cmdline.append('-o')
         cmdline.append(dst)
         cmdline.append(src)
-        p = subprocess.Popen(cmdline, env=xenv)
-        if p.wait() != 0:
-            raise Exception('sort failed')
+        with subprocess.Popen(cmdline, env=xenv) as p:
+            if p.wait() != 0:
+                raise Exception('sort failed')
 
     def load_common_columns(self, src_tbl, dst_tbl, src_curs, dst_curs):
         """Get common fields, put pkeys in start."""
@@ -155,10 +156,9 @@ class Repairer(Syncer):
             whr = 'true'
         q = "copy (SELECT %s FROM %s WHERE %s) to stdout" % (cols, skytools.quote_fqident(tbl), whr)
         self.log.debug("Query: %s", q)
-        f = open(fn, "w", 64 * 1024)
-        curs.copy_expert(q, f)
-        size = f.tell()
-        f.close()
+        with open(fn, "w", 64 * 1024) as f:
+            curs.copy_expert(q, f)
+            size = f.tell()
         self.log.info('%s: Got %d bytes', tbl, size)
 
     def get_row(self, ln):
@@ -175,14 +175,17 @@ class Repairer(Syncer):
         """ Compare two table dumps, create sql file to fix target table
             or apply changes to target table directly.
         """
+        with open(src_fn, "r", 64 * 1024) as f1:
+            with open(dst_fn, "r", 64 * 1024) as f2:
+                self.dump_compare_streams(tbl, f1, f2)
+
+    def dump_compare_streams(self, tbl, f1, f2):
         self.log.info("Comparing dumps: %s", tbl)
         self.cnt_insert = 0
         self.cnt_update = 0
         self.cnt_delete = 0
         self.total_src = 0
         self.total_dst = 0
-        f1 = open(src_fn, "r", 64 * 1024)
-        f2 = open(dst_fn, "r", 64 * 1024)
         src_ln = f1.readline()
         dst_ln = f2.readline()
         if src_ln:

@@ -256,8 +256,10 @@ class CopyTable(Replicator):
         # do we have node here?
         if 'copy_node' in attrs:
             if attrs['copy_node'] == '?':
-                source_node, source_location, ___wname = find_copy_source(self,
-                                                                          self.queue_name, self.copy_table_name, source_node, source_location)
+                source_node, source_location, ___wname = find_copy_source(
+                    self, self.queue_name, self.copy_table_name,
+                    source_node, source_location,
+                )
             else:
                 # take node from attrs
                 source_node = attrs['copy_node']

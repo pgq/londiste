@@ -5,6 +5,8 @@ import os
 import sys
 import time
 
+from typing import List
+
 import skytools
 
 from pgq.cascade.worker import CascadedWorker
@@ -325,7 +327,7 @@ class Replicator(CascadedWorker):
     cur_tick = 0
     prev_tick = 0
     copy_table_name = None  # filled by Copytable()
-    sql_list = []
+    sql_list: List[str] = []
 
     current_event = None
 

@@ -93,7 +93,7 @@ META_PREFIX = "--*--"
 
 
 class Matcher:
-    nice_name = None
+    nice_name = ''
     def match(self, objname, curs, tables, seqs):
         pass
     def get_key(self):

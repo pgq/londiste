@@ -185,7 +185,7 @@ class Syncer(skytools.DBScript):
         self.provider_info = self.get_provider_info(setup_curs)
 
         src_tables, _ = self.get_tables(src_db)
-        if not tbl in src_tables:
+        if tbl not in src_tables:
             self.log.warning('Table not available on provider: %s', tbl)
             return
         t1 = src_tables[tbl]

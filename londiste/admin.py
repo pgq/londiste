@@ -682,7 +682,7 @@ class LondisteSetup(CascadeAdmin):
                 rc = re.compile(glob2regex(a))
                 for x in full_list:
                     if rc.match(x):
-                        if not x in res_map:
+                        if x not in res_map:
                             res_map[x] = 1
                             res_list.append(x)
             else:

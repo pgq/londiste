@@ -15,6 +15,8 @@ import json
 import uuid
 from hashlib import blake2s
 
+from typing import Dict, Any
+
 import skytools
 import yaml
 
@@ -86,6 +88,7 @@ def hash128(data):
 
     return str(uuid.UUID(int=hash_int))
 
+
 def data_to_dict(data, column_list):
     """Convert data received from copy to dict
     """
@@ -95,6 +98,7 @@ def data_to_dict(data, column_list):
     vals = [skytools.unescape_copy(value) for value in data.split('\t')]
     row = dict(zip(column_list, vals))
     return row
+
 
 def obf_vals_to_data(obf_vals):
     """Converts obfuscated values back to copy data
@@ -149,7 +153,7 @@ class Obfuscator(TableHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.
     """
     handler_name = 'obfuscate'
-    obf_map = {}
+    obf_map: Dict[str, Any] = {}
 
     @classmethod
     def load_conf(cls, cf):

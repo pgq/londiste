@@ -5,6 +5,8 @@ TAG = v$(VERSION)
 NEWS = NEWS.rst
 
 all:
+	tox -e lint
+	tox -e py38
 
 clean:
 	rm -rf build *.egg-info */__pycache__ tests/*.pyc
