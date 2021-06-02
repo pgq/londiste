@@ -181,6 +181,10 @@ class BaseHandler:
         """Load conf."""
         pass
 
+    def get_copy_event(self, ev, queue_name):
+        """Get event copy for destination queue."""
+        return ev
+
 
 class TableHandler(BaseHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.

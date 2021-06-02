@@ -987,7 +987,20 @@ class Replicator(CascadedWorker):
         if filtered_copy:
             if ev.type[:9] in ('londiste.',):
                 return
-        super().copy_event(dst_curs, ev, filtered_copy)
+
+        copy_ev = ev
+
+        t = self.get_table_by_name(ev.extra1)
+        if t:
+            try:
+                p = self.used_plugins[ev.extra1]
+            except KeyError:
+                p = t.get_plugin()
+                self.used_plugins[ev.extra1] = p
+
+            copy_ev = p.get_copy_event(ev, self.queue_name)
+
+        super().copy_event(dst_curs, copy_ev, filtered_copy)
 
     def exception_hook(self, det, emsg):
         # add event info to error message
