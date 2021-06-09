@@ -2,6 +2,13 @@
 NEWS
 ====
 
+Londiste v3.6
+-------------
+
+* obfuscate: process copy events
+* Various linter fixes
+* Docker tests
+
 Londiste v3.5
 -------------
 
