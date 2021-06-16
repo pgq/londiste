@@ -362,7 +362,7 @@ def register_handler_module(modname, cf):
         print("Failed to load handler module: %s" % (modname,))
         return
     m = sys.modules[modname]
-    for h in m.__londiste_handlers__:
+    for h in getattr(m, "__londiste_handlers__"):
         h.load_conf(cf)
         _handler_map[h.handler_name] = h
 

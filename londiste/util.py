@@ -1,7 +1,7 @@
 """Misc utilities for COPY code.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, Sequence
 
 import skytools
 
@@ -21,7 +21,7 @@ def handler_allows_copy(table_attrs: Optional[str]) -> bool:
 
 
 def find_copy_source(
-    script: "skytools.DBScript", queue_name: str, copy_table_name: str,
+    script: "skytools.DBScript", queue_name: str, copy_table_name: Union[str, Sequence[str]],
     node_name: str, node_location: str,
 ) -> Tuple[str, str, Optional[str]]:
     """Find source node for table.

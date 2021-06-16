@@ -26,8 +26,8 @@ def handler_args(name, cls):
         newname = '%s_%s' % (cls.__name__, name.replace('.', '_'))
         newcls = type(newname, (cls,), dct)
         setattr(module, newname, newcls)
-        module.__londiste_handlers__.append(newcls)
-        module.__all__.append(newname)
+        getattr(module, "__londiste_handlers__").append(newcls)
+        getattr(module, "__all__").append(newname)
         return func
     return wrapper
 

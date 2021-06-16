@@ -163,7 +163,9 @@ creating or coping initial data to destination table.  --expect-sync and
 
 import datetime
 import re
+import logging
 from functools import partial
+from typing import Sequence
 
 import skytools
 from skytools import UsageError, quote_fqident, quote_ident
@@ -208,7 +210,7 @@ RETENTION_FUNC = "londiste.drop_obsolete_partitions"
 
 
 class BaseLoader:
-    def __init__(self, table, pkeys, log, conf):
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict):
         self.table = table
         self.pkeys = pkeys
         self.log = log
