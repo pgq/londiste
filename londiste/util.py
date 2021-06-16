@@ -1,6 +1,8 @@
 """Misc utilities for COPY code.
 """
 
+from typing import Optional, Tuple
+
 import skytools
 
 import londiste.handler
@@ -8,7 +10,7 @@ import londiste.handler
 __all__ = ['handler_allows_copy', 'find_copy_source']
 
 
-def handler_allows_copy(table_attrs):
+def handler_allows_copy(table_attrs: Optional[str]) -> bool:
     """Decide if table is copyable based on attrs."""
     if not table_attrs:
         return True
@@ -18,7 +20,10 @@ def handler_allows_copy(table_attrs):
     return p.needs_table()
 
 
-def find_copy_source(script, queue_name, copy_table_name, node_name, node_location):
+def find_copy_source(
+    script: "skytools.DBScript", queue_name: str, copy_table_name: str,
+    node_name: str, node_location: str,
+) -> Tuple[str, str, Optional[str]]:
     """Find source node for table.
 
     @param script: DbScript
