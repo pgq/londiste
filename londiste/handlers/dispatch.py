@@ -214,7 +214,7 @@ class BaseLoader:
         self.table = table
         self.pkeys = pkeys
         self.log = log
-        self.conf = conf or {}
+        self.conf = conf or skytools.dbdict()
 
     def process(self, op, row):
         raise NotImplementedError()
