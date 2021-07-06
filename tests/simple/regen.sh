@@ -96,7 +96,7 @@ run londiste $v conf/londiste_db1.ini status
 msg "Run londiste daemon for each node"
 for db in $db_list; do
   run psql -d $db -c "update pgq.queue set queue_ticker_idle_period='2 secs'"
-  run londiste $v -d conf/londiste_$db.ini worker
+  run londiste $v conf/londiste_$db.ini worker &
 done
 
 msg "Create table on root node and fill couple of rows"
@@ -167,7 +167,7 @@ run psql -d db2 -c 'create database db1'
 run londiste $v conf/londiste_db2.ini status --dead=node1
 
 msg "Change db2 to read from db3"
-run londiste $v conf/londiste_db2.ini worker -d
+run londiste $v conf/londiste_db2.ini worker &
 run londiste $v conf/londiste_db2.ini change-provider --provider=node3 --dead=node1
 
 msg "Wait until catchup"
