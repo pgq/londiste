@@ -167,8 +167,8 @@ class Repairer(Syncer):
             return None
         t = ln[:-1].split('\t')
         row = {}
-        for i in range(len(self.common_fields)):
-            row[self.common_fields[i]] = t[i]
+        for i, fname in enumerate(self.common_fields):
+            row[fname] = t[i]
         return row
 
     def dump_compare(self, tbl, src_fn, dst_fn):
@@ -281,7 +281,8 @@ class Repairer(Syncer):
             self.apply_curs.execute(q)
         else:
             fn = "fix.%s.sql" % tbl
-            open(fn, "a").write("%s\n" % q)
+            with open(fn, "a") as f:
+                f.write("%s\n" % q)
 
     def addeq(self, dst_list, f, v):
         """Add quoted SET."""

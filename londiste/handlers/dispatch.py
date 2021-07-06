@@ -165,7 +165,7 @@ import datetime
 import re
 import logging
 from functools import partial
-from typing import Sequence
+from typing import Sequence, List
 
 import skytools
 from skytools import UsageError, quote_fqident, quote_ident
@@ -301,6 +301,8 @@ class BaseBulkCollectingLoader(BaseLoader):
 class BaseBulkTempLoader(BaseBulkCollectingLoader):
     """ Provide methods for operating bulk collected events with temp table
     """
+    keys: List[str]
+
     def __init__(self, table, pkeys, log, conf):
         super().__init__(table, pkeys, log, conf)
         # temp table name
@@ -316,7 +318,7 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         self.fields = None
         # key fields used in where part, possible to add non pk fields
         # (like dist keys in gp)
-        self.keys = self.pkeys[:]
+        self.keys = list(self.pkeys)
 
     def nonkeys(self):
         """returns fields not in keys"""

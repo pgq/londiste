@@ -95,7 +95,10 @@ disable=bad-continuation,
 	try-except-raise,
 	deprecated-module,
 	no-else-break,
-	no-else-continue
+	no-else-continue,
+        arguments-renamed,
+        unused-private-member,
+        consider-using-dict-items
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
