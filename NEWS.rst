@@ -2,6 +2,13 @@
 NEWS
 ====
 
+Londiste v3.6.1
+---------------
+
+* Fix fkey log message
+* Upgrade Skytools dependency in tox to get copy_from fix
+* Various linter fixes
+
 Londiste v3.6
 -------------
 
