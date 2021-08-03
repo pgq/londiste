@@ -168,7 +168,7 @@ class LondisteSetup(CascadeAdmin):
         # search for usable copy node if requested & needed
         if (self.options.find_copy_node and create_flags != 0
                 and needs_tbl and not self.is_root()):
-            src_name, _, _ = find_copy_source(self, self.queue_name, args, None, self.provider_location)
+            src_name, _, _ = find_copy_source(self, self.queue_name, args, "?", self.provider_location)
             self.options.copy_node = src_name
             self.close_database('provider_db')
             src_db = self.get_provider_db()

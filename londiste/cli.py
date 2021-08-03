@@ -57,6 +57,9 @@ cmd_handlers = (
 
 
 class Londiste(skytools.DBScript):
+
+    script: skytools.DBScript
+
     def __init__(self, args):
         self.full_args = args
 
@@ -66,14 +69,15 @@ class Londiste(skytools.DBScript):
             print("need command")
             sys.exit(1)
         cmd = self.args[1]
-        self.script = None
+        script = None
         for names, cls in cmd_handlers:
             if cmd in names:
-                self.script = cls(args)
+                script = cls(args)
                 break
-        if not self.script:
+        if not script:
             print("Unknown command '%s', use --help for help" % cmd)
             sys.exit(1)
+        self.script = script
 
     def start(self):
         self.script.start()
