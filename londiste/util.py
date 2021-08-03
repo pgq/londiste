@@ -1,13 +1,25 @@
 """Misc utilities for COPY code.
 """
 
-from typing import Optional, Tuple, Union, Sequence
+from typing import Optional, Tuple, Union, Sequence, List, Any, Callable, TYPE_CHECKING
+
+import array
+import mmap
+import io
 
 import skytools
+from skytools.config import read_versioned_config
+from skytools.basetypes import Cursor
 
 import londiste.handler
 
+if TYPE_CHECKING:
+    import multiprocessing.connection
+
 __all__ = ['handler_allows_copy', 'find_copy_source']
+
+WriteHook = Optional[Callable[[Any, str], str]]
+FlushHook = Optional[Callable[[Any, str], str]]
 
 
 def handler_allows_copy(table_attrs: Optional[str]) -> bool:
@@ -85,4 +97,220 @@ def find_copy_source(
         node_name = info['provider_node']
         node_location = info['provider_location']
         worker_name = info['worker_name']
+
+
+COPY_FROM_BLK = 1024 * 1024
+COPY_MERGE_BUF = 256 * 1024
+
+
+class MPipeReader(io.RawIOBase):
+    """Read from pipe
+    """
+    def __init__(self, p_recv):
+        super().__init__()
+
+        self.p_recv = p_recv
+        self.buf = b""
+        self.blocks = []
+
+    def readable(self):
+        return True
+
+    def read(self, size: int = -1) -> bytes:
+        # size=-1 means 'all'
+        if size < 0:
+            size = 1 << 30
+
+        # fetch current block of data
+        if self.buf:
+            data = self.buf
+            self.buf = b""
+        else:
+            if not self.blocks:
+                try:
+                    self.blocks = self.p_recv.recv()
+                except EOFError:
+                    return b""
+                self.blocks.reverse()
+            data = self.blocks.pop()
+
+        # return part of it
+        if len(data) > size:
+            data = memoryview(data)
+            self.buf = data[size:]
+            return data[:size].tobytes()
+        return data if isinstance(data, bytes) else data.tobytes()
+
+
+def copy_worker_proc(
+    sql_from: str,
+    p_recv: "multiprocessing.connection.Connection",
+    dst_db_connstr: str,
+    config_file: Optional[str],
+    config_section: Optional[str],
+) -> bool:
+    """Launched in separate process.
+    """
+    if config_file and config_section:
+        cf = read_versioned_config([config_file], config_section)
+        londiste.handler.load_handler_modules(cf)
+
+    preader = MPipeReader(p_recv)
+    with skytools.connect_database(dst_db_connstr) as dst_db:
+        with dst_db.cursor() as dst_curs:
+            dst_curs.copy_expert(sql_from, preader, COPY_FROM_BLK)
+        dst_db.commit()
+    return True
+
+
+class CopyPipeMultiProc(io.RawIOBase):
+    """Pass COPY data over thread.
+    """
+
+    block_buf: List[bytes]
+    write_hook: WriteHook
+
+    def __init__(
+        self,
+        sql_from: str,
+        dst_db_connstr: str,
+        parallel: int = 1,
+        config_file: Optional[str] = None,
+        config_section: Optional[str] = None,
+        write_hook: WriteHook = None,
+    ) -> None:
+        """Setup queue and worker thread.
+        """
+        import multiprocessing
+        import concurrent.futures
+
+        super().__init__()
+
+        self.sql_from = sql_from
+        self.total_rows = 0
+        self.total_bytes = 0
+        self.parallel = parallel
+        self.work_threads = []
+        self.send_pipes = []
+        self.block_buf = []
+        self.block_buf_len = 0
+        self.send_pos = 0
+        self.write_hook = None
+
+        # avoid fork
+        mp_ctx = multiprocessing.get_context("spawn")
+        self.executor = concurrent.futures.ProcessPoolExecutor(max_workers=parallel, mp_context=mp_ctx)
+        for _ in range(parallel):
+            p_recv, p_send = mp_ctx.Pipe(False)
+            f = self.executor.submit(
+                copy_worker_proc, config_file, config_section, self.sql_from, p_recv, dst_db_connstr
+            )
+            self.work_threads.append(f)
+            self.send_pipes.append(p_send)
+
+    def writable(self):
+        return True
+
+    def write(self, data: Union[bytes, bytearray, memoryview, array.array, mmap.mmap]) -> int:
+        """New row from psycopg
+        """
+        if not isinstance(data, bytes):
+            data = memoryview(data).tobytes()
+
+        write_hook = self.write_hook
+        if write_hook:
+            data = write_hook(self, data.decode()).encode()     # pylint: disable=not-callable
+
+        self.block_buf.append(data)
+        self.block_buf_len += len(data)
+
+        if self.block_buf_len > COPY_MERGE_BUF:
+            self.send_blocks()
+
+        self.total_bytes += len(data)
+        self.total_rows += 1
+        return len(data)
+
+    def send_blocks(self):
+        """Send collected rows.
+        """
+        pos = self.send_pos % self.parallel
+        self.send_pipes[pos].send(self.block_buf)
+        self.block_buf = []
+        self.block_buf_len = 0
+        self.send_pos += 1
+
+    def flush(self) -> None:
+        """Finish sending.
+        """
+        if self.block_buf:
+            self.send_blocks()
+        for p_send in self.send_pipes:
+            p_send.close()
+        for f in self.work_threads:
+            f.result()
+        self.executor.shutdown()
+
+
+def full_copy_parallel(
+    tablename: str,
+    src_curs: Cursor,
+    dst_db_connstr: str,
+    column_list: Sequence[str] = (),
+    condition: Optional[str] = None,
+    dst_tablename: Optional[str] = None,
+    dst_column_list: Optional[Sequence[str]] = None,
+    config_file: Optional[str] = None,
+    config_section: Optional[str] = None,
+    write_hook=None,
+    flush_hook=None,
+    parallel=1,
+):
+    """COPY table from one db to another."""
+
+    # default dst table and dst columns to source ones
+    dst_tablename = dst_tablename or tablename
+    dst_column_list = dst_column_list or column_list[:]
+    if len(dst_column_list) != len(column_list):
+        raise Exception('src and dst column lists must match in length')
+
+    def build_qfields(cols):
+        if cols:
+            return ",".join([skytools.quote_ident(f) for f in cols])
+        else:
+            return "*"
+
+    def build_statement(table, cols):
+        qtable = skytools.quote_fqident(table)
+        if cols:
+            qfields = build_qfields(cols)
+            return "%s (%s)" % (qtable, qfields)
+        else:
+            return qtable
+
+    dst = build_statement(dst_tablename, dst_column_list)
+    if condition:
+        src = "(SELECT %s FROM %s WHERE %s)" % (
+            build_qfields(column_list),
+            skytools.quote_fqident(tablename),
+            condition
+        )
+    else:
+        src = build_statement(tablename, column_list)
+
+    copy_opts = ""
+    sql_to = "COPY %s TO stdout%s" % (src, copy_opts)
+    sql_from = "COPY %s FROM stdin%s" % (dst, copy_opts)
+    bufm = CopyPipeMultiProc(
+        config_file=config_file, config_section=config_section,
+        sql_from=sql_from, dst_db_connstr=dst_db_connstr, parallel=parallel,
+        write_hook=write_hook,
+    )
+    try:
+        src_curs.copy_expert(sql_to, bufm)
+    finally:
+        bufm.flush()
+    if flush_hook:
+        flush_hook(bufm)
+    return (bufm.total_bytes, bufm.total_rows)
 
