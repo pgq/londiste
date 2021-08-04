@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.7.1
+---------------
+
+* Fix write_hook in parallel copy.
+
 Londiste v3.7
 -------------
 
