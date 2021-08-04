@@ -2,6 +2,16 @@
 NEWS
 ====
 
+Londiste v3.7
+-------------
+
+* Parallel single table copy:
+
+  - threaded_copy_tables - list of glob patterns for table names
+  - threaded_copy_pool_size - number of threads
+
+* Various linter fixes
+
 Londiste v3.6.1
 ---------------
 
