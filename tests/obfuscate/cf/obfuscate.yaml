@@ -3,3 +3,9 @@ public.mytable:
   htext: hash
   btext: bool
   stext: skip
+
+public.mytable2:
+  id: keep
+  htext: hash
+  btext: bool
+  stext: skip

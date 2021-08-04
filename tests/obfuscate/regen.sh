@@ -27,6 +27,8 @@ check_period = 1
 syslog = 0
 logfile = log/pgqd.log
 pidfile = pid/pgqd.pid
+threaded_copy_tables = public.mytable2
+threaded_copy_pool_size = 1
 EOF
 
 for db in $db_list; do
@@ -87,6 +89,34 @@ run_sql root "select * from pgq.event_template where ev_extra1 = 'public.mytable
 run_sql root "select * from mytable"
 run_sql leaf "select * from pgq.event_template where ev_extra1 = 'public.mytable'"
 run_sql leaf "select * from mytable"
+
+msg "## table 2"
+
+msg "Create table in each node"
+run_sql root "create table mytable2 (id int4 primary key, htext text, btext text, stext text)"
+run_sql leaf "create table mytable2 (id int4 primary key, htext text, btext text, stext text)"
+
+msg "Add some data in root node"
+run_sql root "insert into mytable2 values (1, 'hxdata1', 'bdata1', 'sdata1')"
+
+msg "Register table on each node"
+run londiste $v cf/rootq_root.ini add-table mytable2
+run londiste $v cf/rootq_leaf.ini add-table mytable2 --merge-all --handler=obfuscate
+
+msg "Wait until table is in sync"
+run londiste $v cf/rootq_leaf.ini wait-sync
+
+msg "Add more data in root node"
+run_sql root "insert into mytable2 values (2, 'hxdata2', 'bdata2', 'sdata2')"
+
+msg "Wait until table is in sync"
+run sleep 3
+
+msg "See data"
+run_sql root "select * from pgq.event_template where ev_extra1 = 'public.mytable2'"
+run_sql root "select * from mytable2"
+run_sql leaf "select * from pgq.event_template where ev_extra1 = 'public.mytable2'"
+run_sql leaf "select * from mytable2"
 
 msg "See londiste status"
 run londiste $v cf/rootq_root.ini status

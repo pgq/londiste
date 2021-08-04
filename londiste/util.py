@@ -201,7 +201,7 @@ class CopyPipeMultiProc(io.RawIOBase):
         self.block_buf = []
         self.block_buf_len = 0
         self.send_pos = 0
-        self.write_hook = None
+        self.write_hook = write_hook
 
         # avoid fork
         mp_ctx = multiprocessing.get_context("spawn")
