@@ -41,6 +41,6 @@ unrelease:
 	git tag -d $(TAG)
 
 shownote:
-	awk -v VER="$(VERSION)" -f etc/note.awk $(NEWS) \
+	awk -v VER="v$(VERSION)" -f etc/note.awk $(NEWS) \
 	| pandoc -f rst -t gfm --wrap=none
 
