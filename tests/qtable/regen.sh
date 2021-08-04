@@ -34,6 +34,7 @@ db = dbname=$db
 queue_name = replika
 logfile = log/%(job_name)s.log
 pidfile = pid/%(job_name)s.pid
+handler_modules = londiste.handlers.qtable
 EOF
 done
 
