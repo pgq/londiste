@@ -4,13 +4,18 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
+from typing import List, Dict, Any, Sequence, Tuple, Optional
+
 import json
 import logging
 import sys
 
 import skytools
+from skytools.basetypes import Cursor
 
 import londiste.handlers
+import londiste.util
+
 
 _ = """
 
@@ -43,7 +48,12 @@ __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
 
 
 class RowCache:
-    def __init__(self, table_name):
+
+    table_name: str
+    keys: Dict[str, str]
+    rows: List[Tuple[Any, ...]]
+
+    def __init__(self, table_name: str) -> None:
         self.table_name = table_name
         self.keys = {}
         self.rows = []
@@ -163,7 +173,7 @@ class BaseHandler:
         """ Use if you want to filter data """
         return ''
 
-    def real_copy(self, src_tablename, src_curs, dst_curs, column_list):
+    def real_copy(self, src_tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: List[str]):
         """do actual table copy and return tuple with number of bytes and rows
         copied
         """
@@ -171,6 +181,30 @@ class BaseHandler:
         return skytools.full_copy(src_tablename, src_curs, dst_curs,
                                   column_list, condition,
                                   dst_tablename=self.dest_table)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        column_list: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
+        with skytools.connect_database(dst_db_connstr) as dst_db:
+            with dst_db.cursor() as dst_curs:
+                condition = self.get_copy_condition(src_curs, dst_curs)
+            dst_db.commit()
+
+        return londiste.util.full_copy_parallel(
+            src_real_table, src_curs,
+            dst_db_connstr=dst_db_connstr,
+            dst_tablename=self.dest_table,
+            column_list=column_list,
+            condition=condition,
+            parallel=parallel,
+        )
 
     def needs_table(self):
         """Does the handler need the table to exist on destination."""
@@ -281,6 +315,38 @@ class TableHandler(BaseHandler):
                                   column_list, condition,
                                   dst_tablename=self.dest_table,
                                   write_hook=_write_hook)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        column_list: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
+        with skytools.connect_database(dst_db_connstr) as dst_db:
+            with dst_db.cursor() as dst_curs:
+                condition = self.get_copy_condition(src_curs, dst_curs)
+            dst_db.commit()
+
+        _write_hook: Optional[londiste.util.WriteHook]
+        if self.encoding_validator:
+            def _write_hook(obj, data):
+                return self.encoding_validator.validate_copy(data, column_list, src_real_table)
+        else:
+            _write_hook = None
+
+        return londiste.util.full_copy_parallel(
+            src_real_table, src_curs,
+            dst_db_connstr=dst_db_connstr,
+            column_list=column_list,
+            condition=condition,
+            dst_tablename=self.dest_table,
+            parallel=parallel,
+            write_hook=_write_hook,
+        )
 
 
 #------------------------------------------------------------------------------

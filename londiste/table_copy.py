@@ -163,10 +163,26 @@ class CopyTable(Replicator):
                 dst_db.commit()
                 tbl_stat.dropped_ddl = ddl
 
-        # do truncate & copy
-        self.log.info("%s: start copy", tbl_stat.name)
+        use_threads = False
+        threaded_copy_pool_size = self.copy_method_map.get(tbl_stat.name)
+        if threaded_copy_pool_size is not None:
+            use_threads = True
+
+        # do copy
         p = tbl_stat.get_plugin()
-        stats = p.real_copy(src_real_table, src_curs, dst_curs, common_cols)
+        if use_threads:
+            self.log.info("%s: start threaded copy", tbl_stat.name)
+            dst_db_connstr = self.db_cache["db"].loc
+            dst_db.commit()
+            stats = p.real_copy_threaded(
+                src_real_table, src_curs, dst_db_connstr, common_cols,
+                config_file=self.cf.filename,
+                config_section=self.cf.main_section,
+                parallel=threaded_copy_pool_size,
+            )
+        else:
+            self.log.info("%s: start copy", tbl_stat.name)
+            stats = p.real_copy(src_real_table, src_curs, dst_curs, common_cols)
         if stats:
             self.log.info("%s: copy finished: %d bytes, %d rows",
                           tbl_stat.name, stats[0], stats[1])

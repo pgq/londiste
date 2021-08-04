@@ -50,11 +50,16 @@ pgq_lazy_fetch = 0
 EOF
 done
 
+echo "threaded_copy_tables = *" >> conf/londiste_db2.ini
+
+echo "threaded_copy_tables = *" >> conf/londiste_db3.ini
+echo "threaded_copy_pool_size = 3" >> conf/londiste_db3.ini
+
 for n in 1 2 3; do
 cat > conf/gen$n.ini <<EOF
 [loadgen]
 job_name = gen${n}
-db = dbname=db$n
+db = dbname=db$n host=/tmp
 logfile = log/%(job_name)s.log
 pidfile = pid/%(job_name)s.pid
 EOF
@@ -77,7 +82,7 @@ run cat conf/londiste_db1.ini
 
 msg "Install londiste and initialize nodes"
 run londiste $v conf/londiste_db1.ini create-root
-run londiste $v conf/londiste_db2.ini create-branch node2 'dbname=db2 host=/tmp'
+run londiste $v conf/londiste_db2.ini create-branch node2
 run londiste $v conf/londiste_db3.ini create-branch node3
 run londiste $v conf/londiste_db4.ini create-branch node4 --provider='dbname=db2' --sync-watermark=node4,node5
 run londiste $v conf/londiste_db5.ini create-branch node5 --provider='dbname=db3' --sync-watermark=node4,node5

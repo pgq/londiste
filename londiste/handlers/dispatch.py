@@ -165,14 +165,16 @@ import datetime
 import re
 import logging
 from functools import partial
-from typing import Sequence, List
+from typing import Sequence, List, Tuple, Optional
 
 import skytools
 from skytools import UsageError, quote_fqident, quote_ident
 from skytools.dbstruct import T_ALL, TableStruct
+from skytools.basetypes import Cursor
 
 from londiste.handlers import handler_args, update
 from londiste.handlers.shard import ShardHandler
+import londiste.util
 
 __all__ = ['Dispatcher']
 
@@ -963,6 +965,49 @@ class Dispatcher(ShardHandler):
                                   dst_tablename=self.dest_table,
                                   dst_column_list=_dst_cols,
                                   write_hook=_write_hook)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        column_list: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
+        with skytools.connect_database(dst_db_connstr) as dst_db:
+            with dst_db.cursor() as dst_curs:
+                condition = self.get_copy_condition(src_curs, dst_curs)
+            dst_db.commit()
+
+        _src_cols = _dst_cols = column_list
+        if self.conf.skip_fields:
+            _src_cols = [col for col in column_list
+                         if col not in self.conf.skip_fields]
+            _dst_cols = _src_cols
+
+        if self.conf.field_map:
+            _src_cols = [col for col in _src_cols if col in self.conf.field_map]
+            _dst_cols = [self.conf.field_map[col] for col in _src_cols]
+
+        _write_hook: Optional[londiste.util.WriteHook]
+        if self.encoding_validator:
+            def _write_hook(obj, data):
+                return self.encoding_validator.validate_copy(data, _src_cols, src_real_table)
+        else:
+            _write_hook = None
+
+        return londiste.util.full_copy_parallel(
+            src_real_table, src_curs,
+            dst_db_connstr=dst_db_connstr,
+            dst_tablename=self.dest_table,
+            condition=condition,
+            column_list=_src_cols,
+            dst_column_list=_dst_cols,
+            write_hook=_write_hook,
+            parallel=parallel,
+        )
 
 
 # add arguments' description to handler's docstring

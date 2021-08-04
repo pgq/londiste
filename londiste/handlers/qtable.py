@@ -12,6 +12,10 @@ qsplitter  - dummy handler to setup queue tables. All events are ignored. Table
 
 """
 
+from typing import Sequence, Tuple
+
+from skytools.basetypes import Cursor
+
 import pgq
 from londiste.handler import BaseHandler
 
@@ -34,6 +38,18 @@ class QueueTableHandler(BaseHandler):
 
     def real_copy(self, tablename, src_curs, dst_curs, column_list):
         """Force copy not to start"""
+        return (0, 0)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        common_cols: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
         return (0, 0)
 
     def needs_table(self):

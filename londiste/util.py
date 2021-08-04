@@ -142,12 +142,14 @@ class MPipeReader(io.RawIOBase):
         return data if isinstance(data, bytes) else data.tobytes()
 
 
+# args: pipe, sql, cstr, fn, sect, encoding
 def copy_worker_proc(
-    sql_from: str,
     p_recv: "multiprocessing.connection.Connection",
+    sql_from: str,
     dst_db_connstr: str,
     config_file: Optional[str],
     config_section: Optional[str],
+    src_encoding: Optional[str],
 ) -> bool:
     """Launched in separate process.
     """
@@ -157,7 +159,10 @@ def copy_worker_proc(
 
     preader = MPipeReader(p_recv)
     with skytools.connect_database(dst_db_connstr) as dst_db:
+        if src_encoding and dst_db.encoding != src_encoding:
+            dst_db.set_client_encoding(src_encoding)
         with dst_db.cursor() as dst_curs:
+            dst_curs.execute("select londiste.set_session_replication_role('replica', true)")
             dst_curs.copy_expert(sql_from, preader, COPY_FROM_BLK)
         dst_db.commit()
     return True
@@ -178,6 +183,7 @@ class CopyPipeMultiProc(io.RawIOBase):
         config_file: Optional[str] = None,
         config_section: Optional[str] = None,
         write_hook: WriteHook = None,
+        src_encoding: Optional[str] = None,
     ) -> None:
         """Setup queue and worker thread.
         """
@@ -202,8 +208,12 @@ class CopyPipeMultiProc(io.RawIOBase):
         self.executor = concurrent.futures.ProcessPoolExecutor(max_workers=parallel, mp_context=mp_ctx)
         for _ in range(parallel):
             p_recv, p_send = mp_ctx.Pipe(False)
+            # args: pipe, sql, cstr, fn, sect, encoding
             f = self.executor.submit(
-                copy_worker_proc, config_file, config_section, self.sql_from, p_recv, dst_db_connstr
+                copy_worker_proc,
+                p_recv, self.sql_from, dst_db_connstr,
+                config_file, config_section,
+                src_encoding,
             )
             self.work_threads.append(f)
             self.send_pipes.append(p_send)

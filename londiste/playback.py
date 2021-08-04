@@ -4,8 +4,9 @@
 import os
 import sys
 import time
+import fnmatch
 
-from typing import List
+from typing import List, Optional, Dict
 
 import skytools
 
@@ -53,13 +54,17 @@ class Counter:
     do_sync = 0
     ok = 0
 
-    def __init__(self, tables):
+    def __init__(self, tables: List["TableState"], copy_method_map: Dict[str, Optional[int]]) -> None:
         """Counts and sanity checks."""
         for t in tables:
             if t.state == TABLE_MISSING:
                 self.missing += 1
             elif t.state == TABLE_IN_COPY:
-                self.copy += 1
+                nthreads = copy_method_map[t.name]
+                if nthreads is None:
+                    self.copy += 1
+                else:
+                    self.copy += nthreads
             elif t.state == TABLE_CATCHING_UP:
                 self.catching_up += 1
             elif t.state == TABLE_WANNA_SYNC:
@@ -69,7 +74,7 @@ class Counter:
             elif t.state == TABLE_OK:
                 self.ok += 1
 
-    def get_copy_count(self):
+    def get_copy_count(self) -> int:
         return self.copy + self.catching_up + self.wanna_sync + self.do_sync
 
 
@@ -303,6 +308,11 @@ class Replicator(CascadedWorker):
         # how many tables can be copied in parallel
         #parallel_copies = 1
 
+        # glob patterns for table names: archive.*, public.*
+        #threaded_copy_tables =
+        # number of threads in pool
+        #threaded_copy_pool_size = 1
+
         # accept only events for locally present tables
         #local_only = true
 
@@ -341,12 +351,20 @@ class Replicator(CascadedWorker):
 
     current_event = None
 
+    threaded_copy_tables: List[str]
+    threaded_copy_pool_size: int
+    copy_method_map: Dict[str, Optional[int]]
+
     def __init__(self, args):
         """Replication init."""
         super().__init__('londiste', 'db', args)
 
         self.table_list = []
         self.table_map = {}
+
+        self.threaded_copy_tables = self.cf.getlist('threaded_copy_tables', [])
+        self.threaded_copy_pool_size = self.cf.getint('threaded_copy_pool_size', 1)
+        self.copy_method_map = {}
 
         self.copy_thread = 0
         self.set_name = self.queue_name
@@ -362,6 +380,20 @@ class Replicator(CascadedWorker):
         super().reload()
 
         load_handler_modules(self.cf)
+
+        self.threaded_copy_tables = self.cf.getlist('threaded_copy_tables', [])
+        self.threaded_copy_pool_size = self.cf.getint('threaded_copy_pool_size', 1)
+        self.copy_method_map = {}
+
+    def fill_copy_method(self):
+        for table_name in self.table_map:
+            if table_name not in self.copy_method_map:
+                for pat in self.threaded_copy_tables:
+                    if fnmatch.fnmatchcase(table_name, pat):
+                        self.copy_method_map[table_name] = self.threaded_copy_pool_size
+                        break
+                if table_name not in self.copy_method_map:
+                    self.copy_method_map[table_name] = None
 
     def connection_hook(self, dbname, db):
         if dbname == 'db':
@@ -449,7 +481,7 @@ class Replicator(CascadedWorker):
 
         self.log.debug('Sync tables')
         while True:
-            cnt = Counter(self.table_list)
+            cnt = Counter(self.table_list, self.copy_method_map)
             if self.copy_thread:
                 res = self.sync_from_copy_thread(cnt, src_db, dst_db)
             else:
@@ -825,6 +857,8 @@ class Replicator(CascadedWorker):
 
         self.table_list = new_list
         self.table_map = new_map
+
+        self.fill_copy_method()
 
     def get_state_map(self, curs):
         """Get dict of table states."""

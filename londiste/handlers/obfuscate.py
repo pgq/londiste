@@ -15,13 +15,15 @@ import json
 import uuid
 from hashlib import blake2s
 
-from typing import Dict, Any
+from typing import Dict, Any, Sequence, Tuple
 
+from skytools.basetypes import Cursor
 import skytools
 import yaml
 
 from pgq.event import Event
 from londiste.handler import TableHandler
+import londiste.util
 
 
 __all__ = ['Obfuscator']
@@ -273,6 +275,43 @@ class Obfuscator(TableHandler):
                                   column_list, condition,
                                   dst_tablename=self.dest_table,
                                   write_hook=_write_hook)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        column_list: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
+        with skytools.connect_database(dst_db_connstr) as dst_db:
+            with dst_db.cursor() as dst_curs:
+                condition = self.get_copy_condition(src_curs, dst_curs)
+            dst_db.commit()
+
+        obf_col_map = self._get_map(src_real_table)
+
+        new_list = []
+        for col in column_list:
+            action = obf_col_map.get(col, SKIP)
+            if action != SKIP:
+                new_list.append(col)
+        column_list = new_list
+
+        def _write_hook(_, data):
+            return self.obf_copy_row(data, column_list, src_real_table)
+
+        return londiste.util.full_copy_parallel(
+            src_real_table, src_curs,
+            dst_db_connstr=dst_db_connstr,
+            dst_tablename=self.dest_table,
+            condition=condition,
+            column_list=column_list,
+            write_hook=_write_hook,
+            parallel=parallel,
+        )
 
     def get_copy_event(self, ev, queue_name):
         row = self.parse_row_data(ev)
