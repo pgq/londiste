@@ -4,9 +4,16 @@ RXVERSION = $(shell python3 setup.py --version | sed 's/\./[.]/g')
 TAG = v$(VERSION)
 NEWS = NEWS.rst
 
-all:
-	tox -e lint
+all: lint test
+
+test:
 	tox -e py38
+
+lint:
+	tox -e lint
+
+xlint:
+	tox -e xlint
 
 clean:
 	rm -rf build *.egg-info */__pycache__ tests/*.pyc
