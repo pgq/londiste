@@ -4,7 +4,10 @@ set -e
 set -x
 
 tests="qtable"
-tests="simple qtable obfuscate"
+tests="simple qtable obfuscate shard"
+
+PAGER=cat
+export PAGER
 
 cd $(dirname $0)
 

@@ -3,15 +3,13 @@
 Parameters:
   key=COLUMN: column name to use for hashing
   hash_key=COLUMN: column name to use for hashing (overrides 'key' parameter)
-  hashfunc=NAME: function to use for hashing (default: partconf.get_hash_raw)
-  hashexpr=EXPR: full expression to use for hashing (deprecated)
   encoding=ENC: validate and fix incoming data (only utf8 supported atm)
   ignore_truncate=BOOL: ignore truncate event, default: 0, values: 0,1
 
 On root node:
 * Hash of key field will be added to ev_extra3.
   This is implemented by adding additional trigger argument:
-        ev_extra3='hash='||partconf.get_hash_raw(key_column)
+        ev_extra3='hash='||hashfunc(key_column)
 
 On branch/leaf node:
 * On COPY time, the SELECT on provider side gets filtered by hash.
@@ -20,7 +18,13 @@ On branch/leaf node:
 Local config:
 * Local hash value and mask are loaded from partconf.conf table.
 
+Custom parameters from config file
+* shard_hash_func: function to use for hashing
+* shard_info_sql: SQL query to get (shard_nr, shard_mask, shard_count) values.
+
 """
+
+from typing import Dict
 
 import skytools
 
@@ -28,84 +32,95 @@ from londiste.handler import TableHandler
 
 __all__ = ['ShardHandler', 'PartHandler']
 
+_SHARD_HASH_FUNC = 'partconf.get_hash_raw'
+_SHARD_INFO_SQL = "select shard_nr, shard_mask, shard_count from partconf.conf"
+_SHARD_NR = None    # part number of local node
+_SHARD_MASK = None  # max part nr (atm)
+
 
 class ShardHandler(TableHandler):
     __doc__ = __doc__
     handler_name = 'shard'
 
-    DEFAULT_HASHFUNC = "partconf.get_hash_raw"
-    DEFAULT_HASHEXPR = "%s(%s)"
+    DEFAULT_HASH_EXPR = "%s(%s)"
 
-    def __init__(self, table_name, args, dest_table):
+    hash_key: str
+    hash_expr: str
+
+    def __init__(self, table_name: str, args: Dict[str, str], dest_table: str) -> None:
         super().__init__(table_name, args, dest_table)
-        self.hash_mask = None   # aka max part number (atm)
-        self.shard_nr = None    # part number of local node
 
         # primary key columns
-        self.hash_key = args.get('hash_key', args.get('key'))
-        self._validate_hash_key()
+        hash_key = args.get('hash_key', args.get('key'))
+        if hash_key is None:
+            raise Exception('Specify hash key field as hash_key argument')
+        self.hash_key = hash_key
 
         # hash function & full expression
-        hashfunc = args.get('hashfunc', self.DEFAULT_HASHFUNC)
-        self.hashexpr = self.DEFAULT_HASHEXPR % (
-            skytools.quote_fqident(hashfunc),
+        self.hash_expr = self.DEFAULT_HASH_EXPR % (
+            skytools.quote_fqident(_SHARD_HASH_FUNC),
             skytools.quote_ident(self.hash_key or ''))
-        self.hashexpr = args.get('hashexpr', self.hashexpr)
+        self.hash_expr = args.get('hash_expr', self.hash_expr)
 
-    def _validate_hash_key(self):
-        if self.hash_key is None:
-            raise Exception('Specify hash key field as hash_key argument')
+    @classmethod
+    def load_conf(cls, cf: skytools.Config):
+        global _SHARD_HASH_FUNC, _SHARD_INFO_SQL
 
-    def reset(self):
-        """Forget config info."""
-        self.hash_mask = None
-        self.shard_nr = None
-        super().reset()
+        _SHARD_HASH_FUNC = cf.get("shard_hash_func", _SHARD_HASH_FUNC)
+        _SHARD_INFO_SQL = cf.get("shard_info_sql", _SHARD_INFO_SQL)
 
     def add(self, trigger_arg_list):
         """Let trigger put hash into extra3"""
-        arg = "ev_extra3='hash='||%s" % self.hashexpr
+        arg = "ev_extra3='hash='||%s" % self.hash_expr
         trigger_arg_list.append(arg)
         super().add(trigger_arg_list)
 
+    def is_local_shard_event(self, ev):
+        meta = skytools.db_urldecode(ev.extra3)
+        is_local = (int(meta['hash']) & _SHARD_MASK) == _SHARD_NR
+        self.log.debug('shard.process_event: meta=%r, shard_nr=%i, mask=%i, is_local=%r',
+                       meta, _SHARD_NR, _SHARD_MASK, is_local)
+        return is_local
+
     def prepare_batch(self, batch_info, dst_curs):
         """Called on first event for this table in current batch."""
-        if self.hash_key is not None:
-            if not self.hash_mask:
-                self.load_shard_info(dst_curs)
+        if _SHARD_MASK is None:
+            self.load_shard_info(dst_curs)
         super().prepare_batch(batch_info, dst_curs)
 
     def process_event(self, ev, sql_queue_func, arg):
         """Filter event by hash in extra3, apply only if for local shard."""
-        if ev.extra3 and self.hash_key is not None:
-            meta = skytools.db_urldecode(ev.extra3)
-            self.log.debug('shard.process_event: hash=%i, hash_mask=%i, shard_nr=%i',
-                           int(meta['hash']), self.hash_mask, self.shard_nr)
-            if (int(meta['hash']) & self.hash_mask) != self.shard_nr:
-                self.log.debug('shard.process_event: not my event')
-                return
-        self._process_event(ev, sql_queue_func, arg)
-
-    def _process_event(self, ev, sql_queue_func, arg):
-        self.log.debug('shard.process_event: my event, processing')
-        super().process_event(ev, sql_queue_func, arg)
+        if self.is_local_shard_event(ev):
+            super().process_event(ev, sql_queue_func, arg)
 
     def get_copy_condition(self, src_curs, dst_curs):
         """Prepare the where condition for copy and replay filtering"""
-        if self.hash_key is None:
-            return super().get_copy_condition(src_curs, dst_curs)
         self.load_shard_info(dst_curs)
-        w = "(%s & %d) = %d" % (self.hashexpr, self.hash_mask, self.shard_nr)
-        self.log.debug('shard: copy_condition=%r', w)
-        return w
+        expr = "(%s & %d) = %d" % (self.hash_expr, _SHARD_MASK, _SHARD_NR)
+        self.log.debug('shard: copy_condition=%r', expr)
+        return expr
 
     def load_shard_info(self, curs):
         """Load part/slot info from database."""
-        q = "select part_nr, max_part from partconf.conf"
-        curs.execute(q)
-        self.shard_nr, self.hash_mask = curs.fetchone()
-        if self.shard_nr is None or self.hash_mask is None:
+        global _SHARD_NR, _SHARD_MASK
+
+        curs.execute(_SHARD_INFO_SQL)
+        shard_nr, shard_mask, shard_count = curs.fetchone()
+
+        if shard_nr is None or shard_mask is None or shard_count is None:
             raise Exception('Error loading shard info')
+        if shard_count & shard_mask != 0 or shard_mask + 1 != shard_count:
+            raise Exception('Invalid shard info')
+        if shard_nr < 0 or shard_nr >= shard_count:
+            raise Exception('Invalid shard nr')
+
+        _SHARD_NR = shard_nr
+        _SHARD_MASK = shard_mask
+
+    def get_copy_event(self, ev, queue_name):
+        if self.is_local_shard_event(ev):
+            return ev
+        return None
 
 
 class PartHandler(ShardHandler):
