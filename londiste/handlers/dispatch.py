@@ -728,7 +728,7 @@ class Dispatcher(ShardHandler):
 
     def prepare_batch(self, batch_info, dst_curs):
         """Called on first event for this table in current batch."""
-        if self.conf.table_mode != 'ignore':
+        if batch_info is not None and self.conf.table_mode != 'ignore':
             self.batch_info = batch_info
             self.dst_curs = dst_curs
         super().prepare_batch(batch_info, dst_curs)

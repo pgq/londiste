@@ -668,7 +668,10 @@ class Replicator(CascadedWorker):
     def process_remote_event(self, src_curs, dst_curs, ev):
         """handle one event"""
 
-        self.log.debug("New event: id=%s / type=%s / data=%s / extra1=%s", ev.id, ev.type, ev.data, ev.extra1)
+        self.log.debug(
+            "New event: id=%s / type=%s / data=%s / extra1=%s / extra2=%r / extra3=%r",
+            ev.id, ev.type, ev.data, ev.extra1, ev.extra2, ev.extra3
+        )
 
         # set current_event only if processing them one-by-one
         if self.work_state < 0:
@@ -730,6 +733,7 @@ class Replicator(CascadedWorker):
         except KeyError:
             p = t.get_plugin()
             self.used_plugins[ev.extra1] = p
+            p.prepare_batch(self.batch_info, dst_curs)
 
         if p.conf.get('ignore_truncate'):
             self.log.info("ignoring truncate for %s", fqname)
@@ -1041,9 +1045,12 @@ class Replicator(CascadedWorker):
                 except KeyError:
                     p = t.get_plugin()
                     self.used_plugins[ev.extra1] = p
+                    p.prepare_batch(None, dst_curs)
 
-                # handler may rewrite the event
+                # handler may rewrite or drop the event
                 ev = p.get_copy_event(ev, self.queue_name)
+                if ev is None:
+                    return
 
         super().copy_event(dst_curs, ev, filtered_copy)
 
