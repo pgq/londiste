@@ -2,6 +2,13 @@
 NEWS
 ====
 
+Londiste v3.8
+-------------
+
+* shard handler: support filtered copy, load settings from config file:
+  ``shard_hash_func``, ``shard_info_sql``.
+* fix: always call handler's ``prepare_batch``.
+
 Londiste v3.7.1
 ---------------
 
