@@ -17,6 +17,14 @@ services:
       - londiste_test
     command: ["./simple/docker_run.sh"]
 
+  test_circular:
+    build: .
+    volumes:
+      - londiste_test
+    networks:
+      - londiste_test
+    command: ["./circular/docker_run.sh"]
+
 networks:
   londiste_test:
 

@@ -2,7 +2,7 @@ FROM python:3.8-slim-buster
 
 WORKDIR /code
 COPY . .
-RUN pip3 install 'psycopg2-binary==2.8.6' 'pyyaml==5.3.1' 'skytools==3.6.1' 'pgq==3.5'
+RUN pip3 install 'psycopg2-binary==2.8.6' 'pyyaml==5.3.1' 'skytools==3.7.3' 'pgq==3.5.1'
 RUN pip3 install .
 
 ENV DEBIAN_FRONTEND="noninteractive"
