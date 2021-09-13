@@ -6,7 +6,7 @@ import sys
 import time
 import fnmatch
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Sequence
 
 import skytools
 
@@ -341,6 +341,12 @@ class Replicator(CascadedWorker):
 
         # connect string for existing node to use as provider
         #initial_provider_location =
+
+        # filter for table/seq registration
+        #register_only_tables =
+        #register_only_seqs =
+        #register_skip_tables = s.a, s.b, s.c
+        #register_skip_seqs =
     """
 
     # batch info
@@ -354,6 +360,11 @@ class Replicator(CascadedWorker):
     threaded_copy_tables: List[str]
     threaded_copy_pool_size: int
     copy_method_map: Dict[str, Optional[int]]
+
+    register_only_tables: Optional[Sequence[str]] = None
+    register_only_seqs: Optional[Sequence[str]] = None
+    register_skip_tables: Optional[Sequence[str]] = None
+    register_skip_seqs: Optional[Sequence[str]] = None
 
     def __init__(self, args):
         """Replication init."""
@@ -376,6 +387,11 @@ class Replicator(CascadedWorker):
 
         self.consumer_filter = None
 
+        self.register_only_tables = self.cf.getlist("register_only_tables", [])
+        self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
+        self.register_skip_tables = self.cf.getlist("register_skip_tables", [])
+        self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
+
     def reload(self):
         super().reload()
 
@@ -384,6 +400,11 @@ class Replicator(CascadedWorker):
         self.threaded_copy_tables = self.cf.getlist('threaded_copy_tables', [])
         self.threaded_copy_pool_size = self.cf.getint('threaded_copy_pool_size', 1)
         self.copy_method_map = {}
+
+        self.register_only_tables = self.cf.getlist("register_only_tables", [])
+        self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
+        self.register_skip_tables = self.cf.getlist("register_skip_tables", [])
+        self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
 
     def fill_copy_method(self):
         for table_name in self.table_map:
@@ -819,6 +840,10 @@ class Replicator(CascadedWorker):
     def add_set_table(self, dst_curs, tbl):
         """There was new table added to root, remember it."""
 
+        if self.register_only_tables and tbl not in self.register_only_tables:
+            return
+        if self.register_skip_tables and tbl in self.register_skip_tables:
+            return
         q = "select londiste.global_add_table(%s, %s)"
         dst_curs.execute(q, [self.set_name, tbl])
 
