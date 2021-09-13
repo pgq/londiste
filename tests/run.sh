@@ -4,7 +4,7 @@ set -e
 set -x
 
 tests="qtable"
-tests="simple qtable obfuscate shard"
+tests="simple qtable obfuscate shard register"
 
 PAGER=cat
 export PAGER

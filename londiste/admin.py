@@ -1,6 +1,8 @@
 """Londiste setup and sanity checker.
 """
 
+from typing import Optional, Sequence
+
 import os
 import re
 import sys
@@ -27,6 +29,11 @@ class LondisteSetup(CascadeAdmin):
     commands_without_pidfile = CascadeAdmin.commands_without_pidfile + [
         'tables', 'seqs', 'missing', 'show-handlers']
 
+    register_only_tables: Optional[Sequence[str]] = None
+    register_only_seqs: Optional[Sequence[str]] = None
+    register_skip_tables: Optional[Sequence[str]] = None
+    register_skip_seqs: Optional[Sequence[str]] = None
+
     def install_code(self, db):
         self.extra_objs = [
             skytools.DBSchema("londiste", sql='create extension londiste'),
@@ -47,6 +54,11 @@ class LondisteSetup(CascadeAdmin):
         self.set_name = self.queue_name
 
         self.lock_timeout = self.cf.getfloat('lock_timeout', 10)
+
+        self.register_only_tables = self.cf.getlist("register_only_tables", [])
+        self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
+        self.register_skip_tables = self.cf.getlist("register_skip_tables", [])
+        self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
 
         load_handler_modules(self.cf)
 
@@ -108,6 +120,10 @@ class LondisteSetup(CascadeAdmin):
         pcurs.execute(q, [self.set_name])
         for row in pcurs.fetchall():
             tbl = row['table_name']
+            if self.register_only_tables and tbl not in self.register_only_tables:
+                continue
+            if self.register_skip_tables and tbl in self.register_skip_tables:
+                continue
             q = "select * from londiste.global_add_table(%s, %s)"
             ncurs.execute(q, [self.set_name, tbl])
 
@@ -117,6 +133,10 @@ class LondisteSetup(CascadeAdmin):
         for row in pcurs.fetchall():
             seq = row['seq_name']
             val = row['last_value']
+            if self.register_only_seqs and seq not in self.register_only_seqs:
+                continue
+            if self.register_skip_seqs and seq in self.register_skip_seqs:
+                continue
             q = "select * from londiste.global_update_seq(%s, %s, %s)"
             ncurs.execute(q, [self.set_name, seq, val])
 
@@ -310,6 +330,10 @@ class LondisteSetup(CascadeAdmin):
 
     def sync_table_list(self, dst_curs, src_tbls, dst_tbls):
         for tbl in src_tbls.keys():
+            if self.register_only_tables and tbl not in self.register_only_tables:
+                continue
+            if self.register_skip_tables and tbl in self.register_skip_tables:
+                continue
             q = "select * from londiste.global_add_table(%s, %s)"
             if tbl not in dst_tbls:
                 self.log.info("Table %s info missing from subscriber, adding", tbl)
@@ -448,6 +472,10 @@ class LondisteSetup(CascadeAdmin):
     def sync_seq_list(self, dst_curs, src_seqs, dst_seqs):
         for seq in src_seqs.keys():
             q = "select * from londiste.global_update_seq(%s, %s, %s)"
+            if self.register_only_seqs and seq not in self.register_only_seqs:
+                continue
+            if self.register_skip_seqs and seq in self.register_skip_seqs:
+                continue
             if seq not in dst_seqs:
                 self.log.info("Sequence %s info missing from subscriber, adding", seq)
                 self.exec_cmd(dst_curs, q, [self.set_name, seq, src_seqs[seq]['last_value']])
