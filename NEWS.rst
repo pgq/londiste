@@ -2,6 +2,12 @@
 NEWS
 ====
 
+Londiste v3.8.1
+---------------
+
+* Filter tables on registration: register_only_tables/register_skip_tables
+* Filter seqs on registration: register_only_seqs/register_skip_seqs
+
 Londiste v3.8
 -------------
 
