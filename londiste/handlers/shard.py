@@ -76,6 +76,8 @@ class ShardHandler(TableHandler):
         super().add(trigger_arg_list)
 
     def is_local_shard_event(self, ev):
+        if ev.extra3 is None:
+            raise ValueError("handlers.shard: extra3 not filled on %s" % (self.table_name,))
         meta = skytools.db_urldecode(ev.extra3)
         is_local = (int(meta['hash']) & _SHARD_MASK) == _SHARD_NR
         self.log.debug('shard.process_event: meta=%r, shard_nr=%i, mask=%i, is_local=%r',
