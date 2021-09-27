@@ -27,7 +27,8 @@ class LondisteSetup(CascadeAdmin):
     provider_location = None
 
     commands_without_pidfile = CascadeAdmin.commands_without_pidfile + [
-        'tables', 'seqs', 'missing', 'show-handlers']
+        'tables', 'seqs', 'missing', 'show-handlers', 'wait-sync',
+    ]
 
     register_only_tables: Optional[Sequence[str]] = None
     register_only_seqs: Optional[Sequence[str]] = None
