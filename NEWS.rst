@@ -2,6 +2,12 @@
 NEWS
 ====
 
+Londiste v3.8.2
+---------------
+
+* shard: better error handling on missing shard key
+* admin: disable pidfile write for wait-sync
+
 Londiste v3.8.1
 ---------------
 
