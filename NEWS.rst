@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.8.3
+---------------
+
+* status: support --compact option
+
 Londiste v3.8.2
 ---------------
 
