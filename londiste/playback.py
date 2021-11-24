@@ -476,24 +476,6 @@ class Replicator(CascadedWorker):
         # finalize table changes
         self.save_table_state(dst_curs)
 
-        # store event filter
-        if self.cf.getboolean('local_only', False):
-            # create list of tables
-            if self.copy_thread:
-                _filterlist = skytools.quote_literal(self.copy_table_name)
-            else:
-                _filterlist = ','.join(map(skytools.quote_literal, self.table_map.keys()))
-
-            # build filter
-            meta = "(ev_type like 'pgq.%' or ev_type like 'londiste.%')"
-            if _filterlist:
-                self.consumer_filter = "(%s or (ev_extra1 in (%s)))" % (meta, _filterlist)
-            else:
-                self.consumer_filter = meta
-        else:
-            # no filter
-            self.consumer_filter = None
-
     def sync_tables(self, src_db, dst_db):
         """Table sync loop.
 
@@ -862,6 +844,25 @@ class Replicator(CascadedWorker):
         q = "select londiste.global_remove_seq(%s, %s)"
         dst_curs.execute(q, [self.set_name, seq])
 
+    def setup_local_only_filter(self):
+        # store event filter
+        if self.cf.getboolean('local_only', False):
+            # create list of tables
+            if self.copy_thread:
+                _filterlist = skytools.quote_literal(self.copy_table_name)
+            else:
+                _filterlist = ','.join(map(skytools.quote_literal, self.table_map.keys()))
+
+            # build filter
+            meta = "(ev_type like 'pgq.%' or ev_type like 'londiste.%')"
+            if _filterlist:
+                self.consumer_filter = "(%s or (ev_extra1 in (%s)))" % (meta, _filterlist)
+            else:
+                self.consumer_filter = meta
+        else:
+            # no filter
+            self.consumer_filter = None
+
     def load_table_state(self, curs):
         """Load table state from database.
 
@@ -888,6 +889,7 @@ class Replicator(CascadedWorker):
         self.table_map = new_map
 
         self.fill_copy_method()
+        self.setup_local_only_filter()
 
     def get_state_map(self, curs):
         """Get dict of table states."""
