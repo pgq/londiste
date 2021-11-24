@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.8.4
+---------------
+
+* playback: fix ``local_only`` setup which allowed first batch without filter.
+
 Londiste v3.8.3
 ---------------
 
