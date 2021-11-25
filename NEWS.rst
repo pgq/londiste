@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.8.5
+---------------
+
+* playback: move ``local_only`` setup even earlier.
+
 Londiste v3.8.4
 ---------------
 
