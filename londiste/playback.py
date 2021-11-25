@@ -388,12 +388,13 @@ class Replicator(CascadedWorker):
             raise Exception('Bad value for parallel_copies: %d' % self.parallel_copies)
 
         self.consumer_filter = None
-        self.local_only = False
 
         self.register_only_tables = self.cf.getlist("register_only_tables", [])
         self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
         self.register_skip_tables = self.cf.getlist("register_skip_tables", [])
         self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
+
+        self.local_only = self.cf.getboolean('local_only', False)
 
     def reload(self):
         super().reload()
