@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.8.6
+---------------
+
+* playback: fix variable init.
+
 Londiste v3.8.5
 ---------------
 
