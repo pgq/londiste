@@ -366,6 +366,8 @@ class Replicator(CascadedWorker):
     register_skip_tables: Optional[Sequence[str]] = None
     register_skip_seqs: Optional[Sequence[str]] = None
 
+    local_only: bool = False
+
     def __init__(self, args):
         """Replication init."""
         super().__init__('londiste', 'db', args)
@@ -386,6 +388,7 @@ class Replicator(CascadedWorker):
             raise Exception('Bad value for parallel_copies: %d' % self.parallel_copies)
 
         self.consumer_filter = None
+        self.local_only = False
 
         self.register_only_tables = self.cf.getlist("register_only_tables", [])
         self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
@@ -405,6 +408,8 @@ class Replicator(CascadedWorker):
         self.register_only_seqs = self.cf.getlist("register_only_seqs", [])
         self.register_skip_tables = self.cf.getlist("register_skip_tables", [])
         self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
+
+        self.local_only = self.cf.getboolean('local_only', False)
 
     def fill_copy_method(self):
         for table_name in self.table_map:
@@ -846,7 +851,7 @@ class Replicator(CascadedWorker):
 
     def setup_local_only_filter(self):
         # store event filter
-        if self.cf.getboolean('local_only', False):
+        if self.local_only:
             # create list of tables
             if self.copy_thread:
                 _filterlist = skytools.quote_literal(self.copy_table_name)
@@ -890,6 +895,16 @@ class Replicator(CascadedWorker):
 
         self.fill_copy_method()
         self.setup_local_only_filter()
+
+    def refresh_state(self, dst_db, full_logic=True):
+        res = super().refresh_state(dst_db, full_logic=full_logic)
+
+        # make sure local_only filter is loaded on boot
+        if self.local_only and self.consumer_filter is None:
+            self.load_table_state(dst_db.cursor())
+            dst_db.commit()
+
+        return res
 
     def get_state_map(self, curs):
         """Get dict of table states."""
