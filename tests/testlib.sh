@@ -10,6 +10,39 @@ v=-q
 
 #set -o pipefail
 
+make_worker_config() {
+    qname="$1"
+    dbname="$2"
+    conf_extra="$3"
+    fn="conf/${qname}_${dbname}.ini"
+    conn_extra=""
+    if test -n "${PGHOST}"; then
+        conn_extra="host=${PGHOST}"
+    fi
+
+    cat > "${fn}" <<EOF
+[londiste]
+db = dbname=${dbname} ${conn_extra}
+queue_name = ${qname}
+logfile = log/%(job_name)s.log
+pidfile = pid/%(job_name)s.pid
+${conf_extra}
+EOF
+    echo "${fn}"
+}
+
+make_pgqd_config() {
+    kdb_list=$(echo $@ | sed 's/ /,/g')
+    fn="conf/pgqd.ini"
+    cat > "${fn}" <<EOF
+[pgqd]
+database_list = $kdb_list
+logfile = log/pgqd.log
+pidfile = pid/pgqd.pid
+EOF
+    echo "${fn}"
+}
+
 cleardb() {
   echo "// Clearing database $1"
   psql -q -d $1 -c "
