@@ -37,11 +37,13 @@ jobs:
 
   database:
     name: "Python ${{matrix.test.PY}} + PostgreSQL ${{matrix.test.PG}}"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         test:
+          - {PY: "3.7", PG: "10", TOXENV: "py37"}
           - {PY: "3.8", PG: "12", TOXENV: "py38"}
+          - {PY: "3.9", PG: "14", TOXENV: "py39"}
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
