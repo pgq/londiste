@@ -1030,15 +1030,37 @@ class Replicator(CascadedWorker):
     def restore_fkeys(self, dst_db):
         """Restore fkeys that have both tables on sync."""
         dst_curs = dst_db.cursor()
+
+        # NOT VALID appreared in 9.1
+        q = "select londiste.version() as ext_version, current_setting('server_version_num')::int < 90100 as compat"
+        dst_curs.execute(q)
+        info = dst_curs.fetchone()
+        ext_version = [int(v) for v in info[0].split('.')]
+        do_compat_restore = ext_version < [3, 7] or info[1]
+
         # restore fkeys -- one at a time
         q = "select * from londiste.get_valid_pending_fkeys(%s)"
         dst_curs.execute(q, [self.set_name])
         fkey_list = dst_curs.fetchall()
+        dst_db.commit()
+
         for row in fkey_list:
             self.log.info('Creating fkey: %s (%s --> %s)', row['fkey_name'], row['from_table'], row['to_table'])
-            q2 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s)"
-            dst_curs.execute(q2, row)
-            dst_db.commit()
+            if do_compat_restore:
+                q2 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s)"
+                dst_curs.execute(q2, row)
+                dst_db.commit()
+            else:
+                q3 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s, true)"
+                done = False
+                while not done:
+                    dst_curs.execute(q3, row)
+                    sql = dst_curs.fetchone()[0]
+                    if sql:
+                        dst_curs.execute(sql)
+                    else:
+                        done = True
+                    dst_db.commit()
 
     def drop_fkeys(self, dst_db, table_name):
         """Drop all foreign keys to and from this table.
