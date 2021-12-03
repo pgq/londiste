@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.9
+---------------
+
+* playback: support multistep fkey restore
+
 Londiste v3.8.6
 ---------------
 

@@ -14,7 +14,7 @@ setup(
     long_description=ldesc,
     url="https://github.com/pgq/londiste",
     license="ISC",
-    version="3.8.6",
+    version="3.9",
     maintainer="Marko Kreen",
     maintainer_email="markokr@gmail.com",
     packages=["londiste", "londiste.handlers"],
