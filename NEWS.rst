@@ -2,8 +2,13 @@
 NEWS
 ====
 
-Londiste v3.9
+Londiste v3.9.1
 ---------------
+
+* playback: tolerate weird result from version query
+
+Londiste v3.9
+-------------
 
 * playback: support multistep fkey restore
 
