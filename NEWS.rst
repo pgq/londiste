@@ -2,6 +2,11 @@
 NEWS
 ====
 
+Londiste v3.9.2
+---------------
+
+* playback: fix weird result check
+
 Londiste v3.9.1
 ---------------
 
