@@ -1035,7 +1035,7 @@ class Replicator(CascadedWorker):
         q = "select londiste.version() as ext_version, current_setting('server_version_num')::int < 90100 as compat"
         dst_curs.execute(q)
         info = dst_curs.fetchone()
-        if info[0] and info[1]:
+        if info[0]:
             ext_version = [int(v) for v in info[0].split('.')]
             do_compat_restore = ext_version < [3, 7] or info[1]
         else:
