@@ -146,3 +146,50 @@ run_sql ${branch_db} "select * from $tbl"
 
 ../zcheck.sh
 
+#
+# disable_replay
+#
+
+msg "noreplay: Create table on root node and fill couple of rows"
+run_sql "${root_db}" "create table skiptable (id int4 primary key, data text, tstamp timestamptz default now())"
+for n in 1 2 3 4 5 6 7 8 9 10; do
+  run_sql "${root_db}" "insert into skiptable values ($n, 'row$n')"
+done
+run_sql "${branch_db}" "create table skiptable (id int4 primary key, data text, tstamp timestamptz default now())"
+
+msg "noreplay: Register table on root node"
+run londiste $v ${root_conf} add-table skiptable --trigger-flags=J --handler=shard --handler-arg="key=id"
+
+msg "noreplay: Register table on other node with creation, shard handler"
+run londiste $v ${branch_conf} add-table skiptable --trigger-flags=J --handler=shard --handler-arg="key=id" \
+    --handler-arg="disable_replay=true"
+
+msg "noreplay: Wait until table is in sync"
+run londiste $v ${branch_conf} wait-sync
+
+msg "noreplay: Do some updates"
+run_sql ${root_db} "insert into skiptable values (15, 'row5')"
+run_sql ${root_db} "update skiptable set data = 'row5x' where id = 5"
+
+run_sql ${root_db} "insert into skiptable values (16, 'row6')"
+run_sql ${root_db} "delete from skiptable where id = 6"
+
+run_sql ${root_db} "insert into skiptable values (17, 'row7')"
+run_sql ${root_db} "update skiptable set data = 'row7x' where id = 7"
+run_sql ${root_db} "delete from skiptable where id = 7"
+
+run_sql ${root_db} "delete from skiptable where id = 1"
+run_sql ${root_db} "update skiptable set data = 'row2x' where id = 2"
+
+run sleep 5
+
+msg "noreplay: Check status"
+run londiste $v "${branch_conf}" status
+
+run sleep 5
+
+tbl=$(psql ${root_db} -qAtc "select * from pgq.current_event_table('${qname}');")
+msg "noreplay: Check queue '${qname}' from table $tbl"
+run_sql ${branch_db} "select * from $tbl"
+run_sql ${branch_db} "select * from skiptable"
+

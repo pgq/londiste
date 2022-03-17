@@ -5,6 +5,7 @@ Parameters:
   hash_key=COLUMN: column name to use for hashing (overrides 'key' parameter)
   encoding=ENC: validate and fix incoming data (only utf8 supported atm)
   ignore_truncate=BOOL: ignore truncate event, default: 0, values: 0,1
+  disable_replay=BOOL: no replay to table, just copy events.  default: 0, values: 0 1
 
 On root node:
 * Hash of key field will be added to ev_extra3.
@@ -24,9 +25,10 @@ Custom parameters from config file
 
 """
 
-from typing import Dict
+from typing import Dict, List, Sequence, Tuple
 
 import skytools
+from skytools.basetypes import Cursor
 
 from londiste.handler import TableHandler
 
@@ -46,6 +48,7 @@ class ShardHandler(TableHandler):
 
     hash_key: str
     hash_expr: str
+    disable_replay: bool
 
     def __init__(self, table_name: str, args: Dict[str, str], dest_table: str) -> None:
         super().__init__(table_name, args, dest_table)
@@ -61,6 +64,9 @@ class ShardHandler(TableHandler):
             skytools.quote_fqident(_SHARD_HASH_FUNC),
             skytools.quote_ident(self.hash_key or ''))
         self.hash_expr = args.get('hash_expr', self.hash_expr)
+
+        disable_replay = args.get('disable_replay', 'false')
+        self.disable_replay = disable_replay in ('true', '1')
 
     @classmethod
     def load_conf(cls, cf: skytools.Config):
@@ -92,6 +98,8 @@ class ShardHandler(TableHandler):
 
     def process_event(self, ev, sql_queue_func, arg):
         """Filter event by hash in extra3, apply only if for local shard."""
+        if self.disable_replay:
+            return
         if self.is_local_shard_event(ev):
             super().process_event(ev, sql_queue_func, arg)
 
@@ -123,6 +131,34 @@ class ShardHandler(TableHandler):
         if self.is_local_shard_event(ev):
             return ev
         return None
+
+    def real_copy(self, tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: List[str]) -> Tuple[int, int]:
+        """Force copy not to start"""
+        if self.disable_replay:
+            return (0, 0)
+        return super().real_copy(tablename, src_curs, dst_curs, column_list)
+
+    def real_copy_threaded(
+        self,
+        src_real_table: str,
+        src_curs: Cursor,
+        dst_db_connstr: str,
+        common_cols: Sequence[str],
+        config_file: str,
+        config_section: str,
+        parallel: int = 1,
+    ) -> Tuple[int, int]:
+        if self.disable_replay:
+            return (0, 0)
+        return super().real_copy_threaded(
+            src_real_table, src_curs, dst_db_connstr, common_cols,
+            config_file, config_section, parallel
+        )
+
+    def needs_table(self) -> bool:
+        if self.disable_replay:
+            return False
+        return True
 
 
 class PartHandler(ShardHandler):

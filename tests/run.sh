@@ -12,6 +12,7 @@ tests="
     register
     takeover-merge
 "
+tests="shard"
 
 PAGER=cat
 export PAGER
