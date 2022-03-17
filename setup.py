@@ -3,8 +3,6 @@
 
 from setuptools import setup
 
-CLI_NAME = "londiste"
-
 with open("README.rst") as f:
     ldesc = f.read().strip()
 
@@ -14,14 +12,14 @@ setup(
     long_description=ldesc,
     url="https://github.com/pgq/londiste",
     license="ISC",
-    version="3.9.2",
+    version="3.10",
     maintainer="Marko Kreen",
     maintainer_email="markokr@gmail.com",
     packages=["londiste", "londiste.handlers"],
     install_requires=["pgq", "skytools"],
     entry_points={
         "console_scripts": [
-            CLI_NAME + " = londiste.cli:main",
+            "londiste = londiste.cli:main",
         ],
     },
     classifiers=[

@@ -2,6 +2,12 @@
 NEWS
 ====
 
+Londiste v3.10
+--------------
+
+* shard: add disable_replay parameter.
+* lint: upgrade linters, fix new warnings
+
 Londiste v3.9.2
 ---------------
 
