@@ -3,8 +3,6 @@
 
 from typing import Optional, Tuple, Union, Sequence, List, Any, Callable, TYPE_CHECKING
 
-import array
-import mmap
 import io
 
 import skytools
@@ -15,6 +13,9 @@ import londiste.handler
 
 if TYPE_CHECKING:
     import multiprocessing.connection
+    from _typeshed import ReadableBuffer
+else:
+    ReadableBuffer = Union[bytes, memoryview]
 
 __all__ = ['handler_allows_copy', 'find_copy_source']
 
@@ -218,10 +219,10 @@ class CopyPipeMultiProc(io.RawIOBase):
             self.work_threads.append(f)
             self.send_pipes.append(p_send)
 
-    def writable(self):
+    def writable(self) -> bool:
         return True
 
-    def write(self, data: Union[bytes, bytearray, memoryview, array.array, mmap.mmap]) -> int:
+    def write(self, data: ReadableBuffer) -> int:
         """New row from psycopg
         """
         if not isinstance(data, bytes):
@@ -241,7 +242,7 @@ class CopyPipeMultiProc(io.RawIOBase):
         self.total_rows += 1
         return len(data)
 
-    def send_blocks(self):
+    def send_blocks(self) -> None:
         """Send collected rows.
         """
         pos = self.send_pos % self.parallel

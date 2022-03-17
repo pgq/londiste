@@ -162,7 +162,7 @@ class Obfuscator(TableHandler):
         global _KEY
 
         _KEY = as_bytes(cf.get('obfuscator_key', ''))
-        with open(cf.getfile('obfuscator_map'), 'r') as f:
+        with open(cf.getfile('obfuscator_map'), 'r', encoding="utf8") as f:
             cls.obf_map = yaml.safe_load(f)
 
     def _get_map(self, src_tablename, row=None):

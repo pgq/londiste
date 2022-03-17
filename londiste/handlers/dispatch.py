@@ -164,7 +164,6 @@ creating or coping initial data to destination table.  --expect-sync and
 import datetime
 import re
 import logging
-from functools import partial
 from typing import Sequence, List, Tuple, Optional
 
 import skytools
@@ -1031,12 +1030,6 @@ __londiste_handlers__ = [Dispatcher]
 
 
 #------------------------------------------------------------------------------
-# helper function for creating dispatchers with different default values
-#------------------------------------------------------------------------------
-
-handler_args = partial(handler_args, cls=Dispatcher)
-
-#------------------------------------------------------------------------------
 # build set of handlers with different default values for easier use
 #------------------------------------------------------------------------------
 
@@ -1081,7 +1074,7 @@ def _generate_handlers():
                 def create_handler(_handler_name, _load_dict, _period_dict, _mode_dict):
                     default = update(_mode_dict, _period_dict, _load_dict, BASE)
 
-                    @handler_args(_handler_name)
+                    @handler_args(_handler_name, Dispatcher)
                     def handler_func(args):
                         return update(args, default)
 
@@ -1096,7 +1089,7 @@ def _generate_handlers():
 _generate_handlers()
 
 
-@handler_args('bulk_direct')
+@handler_args('bulk_direct', Dispatcher)
 def bulk_direct_handler(args):
     return update(args, {'load_mode': 'bulk', 'table_mode': 'direct'})
 
@@ -1104,7 +1097,7 @@ def bulk_direct_handler(args):
 set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': 'direct'})
 
 
-@handler_args('direct')
+@handler_args('direct', Dispatcher)
 def direct_handler(args):
     return update(args, {'load_mode': 'direct', 'table_mode': 'direct'})
 

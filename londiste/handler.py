@@ -354,7 +354,7 @@ class TableHandler(BaseHandler):
 #------------------------------------------------------------------------------
 
 class EncodingValidator:
-    def __init__(self, log, encoding='utf-8', replacement=u'\ufffd'):
+    def __init__(self, log, encoding='utf-8', replacement='\ufffd'):
         """validates the correctness of given encoding. when data contains
         illegal symbols, replaces them with <replacement> and logs the
         incident

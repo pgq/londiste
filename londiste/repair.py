@@ -156,7 +156,7 @@ class Repairer(Syncer):
             whr = 'true'
         q = "copy (SELECT %s FROM %s WHERE %s) to stdout" % (cols, skytools.quote_fqident(tbl), whr)
         self.log.debug("Query: %s", q)
-        with open(fn, "w", 64 * 1024) as f:
+        with open(fn, "w", 64 * 1024, encoding="utf8") as f:
             curs.copy_expert(q, f)
             size = f.tell()
         self.log.info('%s: Got %d bytes', tbl, size)
@@ -175,8 +175,8 @@ class Repairer(Syncer):
         """ Compare two table dumps, create sql file to fix target table
             or apply changes to target table directly.
         """
-        with open(src_fn, "r", 64 * 1024) as f1:
-            with open(dst_fn, "r", 64 * 1024) as f2:
+        with open(src_fn, "r", 64 * 1024, encoding="utf8") as f1:
+            with open(dst_fn, "r", 64 * 1024, encoding="utf8") as f2:
                 self.dump_compare_streams(tbl, f1, f2)
 
     def dump_compare_streams(self, tbl, f1, f2):
@@ -281,7 +281,7 @@ class Repairer(Syncer):
             self.apply_curs.execute(q)
         else:
             fn = "fix.%s.sql" % tbl
-            with open(fn, "a") as f:
+            with open(fn, "a", encoding="utf8") as f:
                 f.write("%s\n" % q)
 
     def addeq(self, dst_list, f, v):

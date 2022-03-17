@@ -615,7 +615,7 @@ class LondisteSetup(CascadeAdmin):
 
         for fn in files:
             fname = os.path.basename(fn)
-            with open(fn, "r") as f:
+            with open(fn, "r", encoding="utf8") as f:
                 sql = f.read()
             attrs = ExecAttrs(sql=sql)
             q = "select * from londiste.execute_start(%s, %s, %s, true, %s)"

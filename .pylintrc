@@ -80,6 +80,7 @@ disable=bad-continuation,
 	useless-object-inheritance,
 	duplicate-code,
         consider-using-max-builtin,
+        consider-using-f-string,
 
 	arguments-differ,
 	multiple-statements,
