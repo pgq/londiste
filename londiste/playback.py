@@ -860,7 +860,7 @@ class Replicator(CascadedWorker):
                 _filterlist = ','.join(map(skytools.quote_literal, self.table_map.keys()))
 
             # build filter
-            meta = "(ev_type like 'pgq.%' or ev_type like 'londiste.%')"
+            meta = "(ev_type like 'pgq.%' or ev_type like 'londiste.%' or ev_type = 'EXECUTE')"
             if _filterlist:
                 self.consumer_filter = "(%s or (ev_extra1 in (%s)))" % (meta, _filterlist)
             else:
