@@ -4,7 +4,7 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
-from typing import List, Dict, Any, Sequence, Tuple, Optional
+from typing import List, Dict, Any, Sequence, Tuple, Optional, Mapping
 
 import json
 import logging
@@ -50,7 +50,7 @@ __all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
 class RowCache:
 
     table_name: str
-    keys: Dict[str, str]
+    keys: Dict[str, int]
     rows: List[Tuple[Any, ...]]
 
     def __init__(self, table_name: str) -> None:
@@ -70,13 +70,13 @@ class RowCache:
         row = tuple(row)
         self.rows.append(row)
 
-    def get_fields(self):
-        row = [None] * len(self.keys)
+    def get_fields(self) -> Sequence[str]:
+        row: List[str] = [""] * len(self.keys)
         for k, i in self.keys.items():
             row[i] = k
         return tuple(row)
 
-    def apply_rows(self, curs):
+    def apply_rows(self, curs: Cursor) -> None:
         fields = self.get_fields()
         skytools.magic_insert(curs, self.table_name, self.rows, fields)
 
@@ -87,7 +87,14 @@ class BaseHandler:
     handler_name = 'nop'
     log = logging.getLogger('basehandler')
 
-    def __init__(self, table_name, args, dest_table):
+    table_name: str
+    dest_table: str
+    fq_table_name: str
+    fq_dest_table: str
+    args: Mapping[str, str]
+    conf: skytools.dbdict
+
+    def __init__(self, table_name: str, args, dest_table: Optional[str]) -> None:
         self.table_name = table_name
         self.dest_table = dest_table or table_name
         self.fq_table_name = skytools.quote_fqident(self.table_name)

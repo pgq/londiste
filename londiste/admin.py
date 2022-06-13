@@ -23,8 +23,8 @@ __all__ = ['LondisteSetup']
 
 class LondisteSetup(CascadeAdmin):
     """Londiste-specific admin commands."""
-    initial_db_name = 'node_db'
-    provider_location = None
+    initial_db_name: str = 'node_db'
+    provider_location: Optional[str] = None
 
     commands_without_pidfile = CascadeAdmin.commands_without_pidfile + [
         'tables', 'seqs', 'missing', 'show-handlers', 'wait-sync',

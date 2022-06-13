@@ -19,6 +19,7 @@ def handler_args(name, cls):
     Define successor for handler class cls with func as argument generator
     """
     def wrapper(func):
+        # pylint: disable=unnecessary-dunder-call
         def _init_override(self, table_name, args, dest_table):
             cls.__init__(self, table_name, func(args.copy()), dest_table)
         dct = {'__init__': _init_override, 'handler_name': name}
