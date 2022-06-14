@@ -341,7 +341,9 @@ class Replicator(CascadedWorker):
         #threaded_copy_pool_size = 1
 
         # accept only events for locally present tables
-        #local_only = true
+        #local_only = false
+        # do not load EXECUTE events from source queue when local_only is active
+        #local_only_drop_execute = false
 
         ## compare/repair
         # max amount of time table can be locked
@@ -394,6 +396,7 @@ class Replicator(CascadedWorker):
     register_skip_seqs: Optional[Sequence[str]] = None
 
     local_only: bool = False
+    local_only_drop_execute: bool = False
 
     table_list: List[TableState]
     table_map: Dict[str, TableState]
@@ -426,6 +429,7 @@ class Replicator(CascadedWorker):
         self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
 
         self.local_only = self.cf.getboolean('local_only', False)
+        self.local_only_drop_execute = self.cf.getboolean('local_only_drop_execute', False)
 
     def reload(self):
         super().reload()
@@ -442,6 +446,7 @@ class Replicator(CascadedWorker):
         self.register_skip_seqs = self.cf.getlist("register_skip_seqs", [])
 
         self.local_only = self.cf.getboolean('local_only', False)
+        self.local_only_drop_execute = self.cf.getboolean('local_only_drop_execute', False)
 
     def fill_copy_method(self):
         for table_name in self.table_map:
@@ -891,11 +896,16 @@ class Replicator(CascadedWorker):
                 _filterlist = ','.join(map(skytools.quote_literal, self.table_map.keys()))
 
             # build filter
-            meta = "(ev_type like 'pgq.%' or ev_type like 'londiste.%' or ev_type = 'EXECUTE')"
+            cond_list = [
+                "ev_type like 'pgq.%'",
+                "ev_type like 'londiste.%'",
+            ]
+            if not self.local_only_drop_execute:
+                cond_list.append("ev_type = 'EXECUTE'")
             if _filterlist:
-                self.consumer_filter = "(%s or (ev_extra1 in (%s)))" % (meta, _filterlist)
-            else:
-                self.consumer_filter = meta
+                cond_list.append(f"ev_extra1 in ({_filterlist})")
+            expr = " or ".join(cond_list)
+            self.consumer_filter = f"({expr})"
         else:
             # no filter
             self.consumer_filter = None
