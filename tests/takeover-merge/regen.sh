@@ -178,6 +178,12 @@ psql -d "${targetdb2_cstr}" -c "select count(*) from mytable"
 
 for nr in $(seq 3); do
 
+    
+    msg "Delay ${sourceq2_targetdb2_conf}"
+    run londiste $v -s "${sourceq2_targetdb2_conf}" worker
+    sleep 30
+    run londiste $v -d "${sourceq2_targetdb2_conf}" worker
+
     msg "Takeover $nr to ${targetdb2}"
 
     run londiste $v "${targetq_targetdb2_conf}" takeover "${targetdb1}"
@@ -190,6 +196,10 @@ for nr in $(seq 3); do
     run londiste $v "${sourceq2_targetdb2_conf}" status
     run londiste $v "${targetq_targetdb1_conf}" status
 
+    #msg "Delay ${sourceq2_targetdb2_conf}"
+    #run londiste $v -s "${sourceq2_targetdb2_conf}" worker
+    #sleep 30
+    #run londiste $v -d "${sourceq2_targetdb2_conf}" worker
     msg "Takeover $nr to ${targetdb1}"
 
     run londiste $v "${targetq_targetdb1_conf}" takeover "${targetdb2}"
