@@ -2,11 +2,11 @@ FROM python:3.8-slim-buster
 
 WORKDIR /code
 COPY . .
-RUN pip3 install 'psycopg2-binary==2.8.6' 'pyyaml==5.3.1' 'skytools==3.6.1' 'pgq==3.5'
+RUN pip3 install 'psycopg2-binary==2.9.3' 'pyyaml==5.3.1' 'skytools==3.8' 'pgq==3.7'
 RUN pip3 install .
 
 ENV DEBIAN_FRONTEND="noninteractive"
-ENV PG=12
+ENV PG=14
 RUN set -ex; \
     apt="apt-get -qq -y --no-install-recommends"; \
 	${apt} update; \
