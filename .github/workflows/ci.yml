@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         test:
-          - {PY: "3.8", TOXENV: "lint"}
+          - {PY: "3.10", TOXENV: "lint"}
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
@@ -37,13 +37,13 @@ jobs:
 
   database:
     name: "Python ${{matrix.test.PY}} + PostgreSQL ${{matrix.test.PG}}"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         test:
-          - {PY: "3.7", PG: "10", TOXENV: "py37"}
           - {PY: "3.8", PG: "12", TOXENV: "py38"}
-          - {PY: "3.9", PG: "14", TOXENV: "py39"}
+          - {PY: "3.9", PG: "13", TOXENV: "py39"}
+          - {PY: "3.10", PG: "14", TOXENV: "py310"}
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
