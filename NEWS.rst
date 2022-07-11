@@ -2,6 +2,14 @@
 NEWS
 ====
 
+Londiste v3.11
+--------------
+
+* playback: allow EXECUTE to pass through on merge nodes
+* playback: make EXECUTE passthrough tunable
+* tox: update packages
+* cleanup: improve typings
+
 Londiste v3.10
 --------------
 
