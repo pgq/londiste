@@ -27,8 +27,6 @@ check_period = 1
 syslog = 0
 logfile = log/pgqd.log
 pidfile = pid/pgqd.pid
-threaded_copy_tables = public.mytable2
-threaded_copy_pool_size = 1
 EOF
 
 for db in $db_list; do
