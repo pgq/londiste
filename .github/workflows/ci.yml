@@ -2,6 +2,11 @@
 # https://docs.github.com/en/actions/reference
 # https://github.com/actions
 #
+# uses: https://github.com/actions/checkout @v3
+# uses: https://github.com/actions/setup-python @v4
+# uses: https://github.com/actions/download-artifact @v3
+# uses: https://github.com/actions/upload-artifact @v3
+#
 
 name: CI
 
@@ -11,8 +16,8 @@ on:
 
 jobs:
 
-  pylint:
-    name: "PyLint"
+  check:
+    name: "Check"
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -20,20 +25,19 @@ jobs:
           - {PY: "3.10", TOXENV: "lint"}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: "Setup Python ${{matrix.test.PY}}"
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{matrix.test.PY}}
 
-      - name: "Install tox"
-        run: python -m pip -q install tox
+      - run: python3 -m pip install -r etc/requirements.build.txt --disable-pip-version-check
 
-      - name: "Run checker"
+      - name: "Test"
         env:
            TOXENV: ${{matrix.test.TOXENV}}
-        run: python -m tox -r
+        run: python3 -m tox -r
 
   database:
     name: "Python ${{matrix.test.PY}} + PostgreSQL ${{matrix.test.PG}}"
@@ -41,27 +45,32 @@ jobs:
     strategy:
       matrix:
         test:
+          - {PY: "3.7", PG: "11", TOXENV: "py37"}
           - {PY: "3.8", PG: "12", TOXENV: "py38"}
           - {PY: "3.9", PG: "13", TOXENV: "py39"}
           - {PY: "3.10", PG: "14", TOXENV: "py310"}
+          - {PY: "3.11", PG: "15", TOXENV: "py311"}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: "Setup Python ${{matrix.test.PY}}"
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{matrix.test.PY}}
 
-      - name: "Install tox"
-        run: |
-          python -m pip -q install tox
+      - run: python3 -m pip install -r etc/requirements.build.txt --disable-pip-version-check
 
       - name: "InstallDB"
         run: |
           echo "::group::apt-get-update"
+          sudo -nH apt-get -q update
+          sudo -nH apt-get -q install curl ca-certificates gnupg
+          curl https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+          | gpg --dearmor \
+          | sudo -nH tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg
           echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main ${{matrix.test.PG}}" \
-          | sudo tee /etc/apt/sources.list.d/pgdg.list
+          | sudo -nH tee /etc/apt/sources.list.d/pgdg.list
           sudo -nH apt-get -q update
           echo "::endgroup::"
 
@@ -81,8 +90,8 @@ jobs:
       - name: "Install extensions"
         run: |
           echo "::group::install-pgq"
-          git clone -q https://github.com/pgq/pgq; make -C pgq
-          sudo -nH bash -c "PATH='${PATH}' make install -C pgq"
+          git clone -q https://github.com/pgq/pgq pgq-sql; make -C pgq-sql
+          sudo -nH bash -c "PATH='${PATH}' make install -C pgq-sql"
           echo "::endgroup::"
 
           echo "::group::install-pgq-node"
@@ -116,7 +125,7 @@ jobs:
           TEST_Q_NAME: testq
           PGDATABASE: testdb
         run: |
-          python -m tox -r -- --color=yes
+          python3 -m tox -r -- --color=yes
 
       - name: "StopDB"
         run: |
