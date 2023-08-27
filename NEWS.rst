@@ -2,6 +2,16 @@
 NEWS
 ====
 
+Londiste v3.12
+--------------
+
+* typing: add full typing
+* tests/obfuscate: fix pgqd conf
+* build: convert to pyproject
+* mk: test-db15 .. test-pg15, test-all targets for docker tests
+* ci: drop obsolete actions
+* handlers: drop encoding validator, it has never worked on Py3
+
 Londiste v3.11
 --------------
 
