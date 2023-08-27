@@ -1,0 +1,45 @@
+# docker compose v2 file
+
+# https://docs.docker.com/compose/compose-file/
+
+# fixme: does not work yet
+
+name: londiste-split
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: etc/Dockerfile.worker
+      args:
+        PY: "3.10"
+    volumes:
+      - type: bind
+        read_only: true
+        source: .
+        target: /repo
+    networks:
+      - testnet
+    deploy:
+      mode: global
+    command: ["./run.sh"]
+
+  db:
+    build:
+      context: .
+      dockerfile: etc/Dockerfile.db
+      args:
+        PG: "15"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - testnet
+    deploy:
+      mode: global
+
+volumes:
+  pgdata:
+
+networks:
+  testnet:
+

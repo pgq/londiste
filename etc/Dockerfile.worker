@@ -1,0 +1,32 @@
+# only workers
+
+# https://docs.docker.com/engine/reference/builder/
+
+ARG PY=3
+
+FROM python:${PY}-slim-bookworm
+
+ARG PGHOST="db"
+ENV PGHOST="${PGHOST}"
+
+WORKDIR /code
+
+RUN set -ex; \
+    apt="apt-get -qq -y --no-install-recommends"; \
+    ${apt} update; \
+    ${apt} install pgqd; \
+    adduser --disabled-password --gecos=Replica londiste; \
+    rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin; \
+    rm -rf /var/lib/apt/lists/*; \
+    chown londiste:londiste /code; \
+    echo "OK: PY=${PY}"
+
+USER londiste
+
+COPY etc/requirements.txt etc/docker_run.sh etc/
+
+RUN set -ex; \
+    pip3 -q --disable-pip-version-check --no-cache-dir install --user -r etc/requirements.txt
+
+ENTRYPOINT ["etc/docker_run.sh"]
+

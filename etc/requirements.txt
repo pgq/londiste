@@ -1,0 +1,11 @@
+setuptools>=67
+wheel>=0.41
+build>=0.10
+flit-core>=3.6,<4
+pip>=23
+
+psycopg2-binary>=2.9
+pyyaml>=6.0,<7
+
+skytools==3.9.2
+pgq==3.8

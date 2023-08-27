@@ -1,7 +1,6 @@
-include tox.ini .coveragerc .pylintrc
-include etc/note.awk
+include tox.ini .coveragerc
+include etc/note.awk etc/*.yml etc/Docker*
 include MANIFEST.in Makefile tox.ini
-include .coveragerc .pylintrc
 include README.rst NEWS.rst
 include tests/*.py tests/*.sh
 include tests/*/*.py tests/*/*.sh tests/*/*.sql

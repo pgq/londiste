@@ -1,0 +1,65 @@
+# contains both db and workers
+
+# https://docs.docker.com/engine/reference/builder/
+
+ARG PY=3
+FROM python:${PY}-slim-bookworm
+
+# need to repeat after FROM
+ARG PY=3
+ARG PG=15
+
+# copy to env
+ENV PY=${PY}
+ENV PG=${PG}
+
+WORKDIR /code
+
+RUN set -ex; \
+    echo "Init: PY=${PY} PG=${PG}"; \
+    export DEBIAN_FRONTEND="noninteractive"; \
+    apt="apt-get -qq -y --no-install-recommends"; \
+    ${apt} update; \
+    ${apt} install wget gnupg2 lsb-release git make gcc libc6-dev cpio; \
+    ${apt} dist-upgrade; \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/pgdg-archive.gpg; \
+    echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main ${PG}" > /etc/apt/sources.list.d/pgdg.list; \
+    ${apt} update; \
+# disable new cluster creation
+    mkdir -p /etc/postgresql-common/createcluster.d; \
+    echo "create_main_cluster = false" | tee /etc/postgresql-common/createcluster.d/no-main.conf; \
+    ${apt} install postgresql-${PG} postgresql-server-dev-${PG} pgqd; \
+# build extensions
+    git clone -q https://github.com/pgq/pgq; make -C pgq; \
+    bash -c "PATH='${PATH}' make install -C pgq"; \
+    git clone -q https://github.com/pgq/pgq-node; make -C pgq-node; \
+    bash -c "PATH='${PATH}' make install -C pgq-node"; \
+    git clone -q https://github.com/pgq/londiste-sql; make -C londiste-sql; \
+    bash -c "PATH='${PATH}' make install -C londiste-sql"; \
+# clean build env
+    rm -rf pgq pgq-node londiste-sql; \
+    ${apt} remove wget gnupg2 lsb-release git make gcc libc6-dev postgresql-server-dev-${PG}; \
+    ${apt} autoremove; \
+    rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin; \
+    rm -rf /var/lib/apt/lists/*; \
+    chown postgres:postgres /code; \
+    echo "OK: PY=${PY} PG=${PG}";
+
+ENV PATH="/usr/lib/postgresql/${PG}/bin:/var/lib/postgresql/.local/bin:${PATH}"
+ENV PGHOST="/tmp"
+
+USER postgres
+
+RUN set -ex; \
+    rm -rf data log; \
+    mkdir -p log; \
+    LANG=C initdb data; \
+    sed -ri -e "s,^[# ]*(unix_socket_directories).*,\\1='/tmp'," data/postgresql.conf;
+
+COPY etc/requirements.txt etc/docker_run.sh etc/
+
+RUN set -ex; \
+    pip3 -q --disable-pip-version-check --no-cache-dir install --user -r etc/requirements.txt
+
+ENTRYPOINT ["etc/docker_run.sh"]
+

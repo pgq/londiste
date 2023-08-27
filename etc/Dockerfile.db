@@ -1,0 +1,32 @@
+# only postgres
+
+# https://docs.docker.com/engine/reference/builder/
+
+ARG PG=15
+FROM postgres:${PG}-bookworm
+
+#ARG PG=15
+
+RUN set -ex; \
+    export PG="${PG_MAJOR}"; \
+    export DEBIAN_FRONTEND="noninteractive"; \
+    apt="apt-get -qq -y --no-install-recommends"; \
+    echo "Installing build env: ${PG}"; \
+    ${apt} update; \
+    ${apt} install ca-certificates git make gcc postgresql-server-dev-${PG}; \
+    echo "Building extensions"; \
+    export PATH="/usr/lib/postgresql/${PG}/bin:${PATH}"; \
+    git clone -q https://github.com/pgq/pgq; make -C pgq; \
+    bash -c "PATH='${PATH}' make install -C pgq"; \
+    git clone -q https://github.com/pgq/pgq-node; make -C pgq-node; \
+    bash -c "PATH='${PATH}' make install -C pgq-node"; \
+    git clone -q https://github.com/pgq/londiste-sql; make -C londiste-sql; \
+    bash -c "PATH='${PATH}' make install -C londiste-sql"; \
+    echo "Cleaning build env"; \
+    rm -rf pgq pgq-node londiste-sql; \
+    ${apt} remove ca-certificates git make gcc postgresql-server-dev-${PG}; \
+    ${apt} autoremove; \
+    rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin; \
+    rm -rf /var/lib/apt/lists/*; \
+    echo "OK"
+
