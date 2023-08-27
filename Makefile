@@ -81,6 +81,9 @@ test-pg15-shell:
 test-pg10 test-pg11 test-pg12 test-pg13 test-pg14 test-pg15:
 	$(COMPOSE_COMBO) up --build $@
 
+test-all:
+	$(COMPOSE_COMBO) up --build
+
 #
 # does not work yet
 #
