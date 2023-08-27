@@ -1,4 +1,3 @@
-include tox.ini .coveragerc
 include etc/note.awk etc/*.yml etc/Docker*
 include MANIFEST.in Makefile tox.ini
 include README.rst NEWS.rst

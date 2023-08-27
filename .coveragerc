@@ -1,5 +1,0 @@
-[report]
-exclude_lines =
-	^try:
-	^except
-	pragma: no cover
