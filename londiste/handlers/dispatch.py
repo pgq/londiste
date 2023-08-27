@@ -164,13 +164,15 @@ creating or coping initial data to destination table.  --expect-sync and
 import datetime
 import re
 import logging
-from typing import Sequence, List, Tuple, Optional
+from typing import Sequence, List, Tuple, Optional, Dict, Any, Callable, Mapping, Type, Set
 
 import skytools
-from skytools import UsageError, quote_fqident, quote_ident
+from skytools import UsageError, quote_fqident, quote_ident, dbdict
+#from skytools.basetypes import DictRow
+from skytools.sqltools import DictRows
 from skytools.dbstruct import T_ALL, TableStruct
-from skytools.basetypes import Cursor
 
+from londiste.handler import BatchInfo, Cursor, Event, ApplyFunc, BaseHandler
 from londiste.handlers import handler_args, update
 from londiste.handlers.shard import ShardHandler
 import londiste.util
@@ -211,33 +213,43 @@ RETENTION_FUNC = "londiste.drop_obsolete_partitions"
 
 
 class BaseLoader:
-    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict):
+    table: str
+    pkeys: Sequence[str]
+    log: logging.Logger
+    conf: skytools.dbdict
+
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict) -> None:
         self.table = table
         self.pkeys = pkeys
         self.log = log
         self.conf = conf or skytools.dbdict()
 
-    def process(self, op, row):
+    def process(self, op: str, row: Dict[str, Any]) -> None:
         raise NotImplementedError()
 
-    def flush(self, curs):
+    def flush(self, curs: Cursor) -> None:
         raise NotImplementedError()
 
 
 class DirectLoader(BaseLoader):
-    def __init__(self, table, pkeys, log, conf):
+    data: List[Tuple[str, Dict[str, Any]]]
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict) -> None:
         super().__init__(table, pkeys, log, conf)
         self.data = []
 
-    def process(self, op, row):
+    def process(self, op: str, row: Dict[str, Any]) -> None:
         self.data.append((op, row))
 
-    def flush(self, curs):
-        mk_sql = {'I': skytools.mk_insert_sql,
-                  'U': skytools.mk_update_sql,
-                  'D': skytools.mk_delete_sql}
+    def flush(self, curs: Cursor) -> None:
+        mk_sql: Dict[str, Callable[
+            [Mapping[str, Any], str, Sequence[str], Optional[Mapping[str, str]]], str
+        ]] = {
+            'I': skytools.mk_insert_sql,
+            'U': skytools.mk_update_sql,
+            'D': skytools.mk_delete_sql
+        }
         if self.data:
-            curs.execute("\n".join(mk_sql[op](row, self.table, self.pkeys)
+            curs.execute("\n".join(mk_sql[op](row, self.table, self.pkeys, None)
                                    for op, row in self.data))
 
 
@@ -249,25 +261,27 @@ class BaseBulkCollectingLoader(BaseLoader):
     If after processing the op is not in I,U or D, then ignore that event for
     rest
     """
-    OP_GRAPH = {None: {'U': 'U', 'I': 'I', 'D': 'D'},
+    OP_GRAPH = {'-': {'U': 'U', 'I': 'I', 'D': 'D'},
                 'I': {'D': '.'},
                 'U': {'D': 'D'},
                 'D': {'I': 'U'},
                 '.': {'I': 'I'},
                 }
 
-    def __init__(self, table, pkeys, log, conf):
+    pkey_ev_map: Dict[Tuple[str, ...], Tuple[str, Dict[str, Any]]]
+
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict) -> None:
         super().__init__(table, pkeys, log, conf)
         if not self.pkeys:
             raise Exception('non-pk tables not supported: %s' % self.table)
         self.pkey_ev_map = {}
 
-    def process(self, op, row):
+    def process(self, op: str, row: Dict[str, Any]) -> None:
         """Collect rows into pk dict, keeping only last row with most
         suitable op"""
-        pk_data = tuple(row[k] for k in self.pkeys)
+        pk_data: Tuple[str, ...] = tuple(row[k] for k in self.pkeys)
         # get current op state, None if first event
-        _op = self.pkey_ev_map.get(pk_data, (None,))[0]
+        _op = self.pkey_ev_map.get(pk_data, ('-', {}))[0]
         # find new state and store together with row data
         try:
             # get new op state using op graph
@@ -281,21 +295,21 @@ class BaseBulkCollectingLoader(BaseLoader):
         except KeyError:
             raise Exception('unknown event type: %s' % op) from None
 
-    def collect_data(self):
+    def collect_data(self) -> Dict[str, List[Dict[str, Any]]]:
         """Collects list of rows into operation hashed dict
         """
-        op_map = {'I': [], 'U': [], 'D': []}
+        op_map: Dict[str, List[Dict[str, Any]]] = {'I': [], 'U': [], 'D': []}
         for op, row in self.pkey_ev_map.values():
             # ignore None op events
             if op in op_map:
                 op_map[op].append(row)
         return op_map
 
-    def flush(self, curs):
+    def flush(self, curs: Cursor) -> None:
         op_map = self.collect_data()
         self.bulk_flush(curs, op_map)
 
-    def bulk_flush(self, curs, op_map):
+    def bulk_flush(self, curs: Cursor, op_map: Dict[str, List[Dict[str, Any]]]) -> None:
         pass
 
 
@@ -303,8 +317,12 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
     """ Provide methods for operating bulk collected events with temp table
     """
     keys: List[str]
+    fields: Optional[List[str]]
+    temp: str
+    qtemp: str
+    qtable: str
 
-    def __init__(self, table, pkeys, log, conf):
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict) -> None:
         super().__init__(table, pkeys, log, conf)
         # temp table name
         if USE_REAL_TABLE:
@@ -321,11 +339,13 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         # (like dist keys in gp)
         self.keys = list(self.pkeys)
 
-    def nonkeys(self):
+    def nonkeys(self) -> List[str]:
         """returns fields not in keys"""
+        if not self.fields:
+            return []
         return [f for f in self.fields if f not in self.keys]
 
-    def logexec(self, curs, sql):
+    def logexec(self, curs: Cursor, sql: str) -> None:
         """Logs and executes sql statement"""
         self.log.debug('exec: %s', sql)
         curs.execute(sql)
@@ -333,20 +353,22 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
 
     # create sql parts
 
-    def _where(self):
+    def _where(self) -> str:
         tmpl = "%(tbl)s.%(col)s = t.%(col)s"
         stmt = (tmpl % {'col': quote_ident(f), 'tbl': self.qtable}
                 for f in self.keys)
         return ' and '.join(stmt)
 
-    def _cols(self):
+    def _cols(self) -> str:
+        if not self.fields:
+            return ''
         return ','.join(quote_ident(f) for f in self.fields)
 
-    def insert(self, curs):
+    def insert(self, curs: Cursor) -> None:
         sql = "insert into %s (%s) select %s from %s" % (self.qtable, self._cols(), self._cols(), self.qtemp)
         self.logexec(curs, sql)
 
-    def update(self, curs):
+    def update(self, curs: Cursor) -> None:
         qcols = [quote_ident(c) for c in self.nonkeys()]
 
         # no point to update pk-only table
@@ -360,36 +382,41 @@ class BaseBulkTempLoader(BaseBulkCollectingLoader):
         sql = "update only %s set %s from %s as t where %s" % (self.qtable, _set, self.qtemp, self._where())
         self.logexec(curs, sql)
 
-    def delete(self, curs):
+    def delete(self, curs: Cursor) -> None:
         sql = "delete from only %s using %s as t where %s" % (self.qtable, self.qtemp, self._where())
         self.logexec(curs, sql)
 
-    def truncate(self, curs):
+    def truncate(self, curs: Cursor) -> None:
         self.logexec(curs, "truncate %s" % self.qtemp)
 
-    def drop(self, curs):
+    def drop(self, curs: Cursor) -> None:
         self.logexec(curs, "drop table %s" % self.qtemp)
 
-    def create(self, curs):
+    def create(self, curs: Cursor) -> None:
         if USE_REAL_TABLE:
             tmpl = "create table %s (like %s)"
         else:
             tmpl = "create temp table %s (like %s) on commit preserve rows"
         self.logexec(curs, tmpl % (self.qtemp, self.qtable))
 
-    def analyze(self, curs):
+    def analyze(self, curs: Cursor) -> None:
         self.logexec(curs, "analyze %s" % self.qtemp)
 
-    def process(self, op, row):
+    def process(self, op: str, row: Dict[str, Any]) -> None:
         super().process(op, row)
         # TODO: maybe one assignment is enough?
-        self.fields = row.keys()
+        self.fields = list(row.keys())
 
 
 class BulkLoader(BaseBulkTempLoader):
     """ Collects events to and loads bulk data using copy and temp tables
     """
-    def __init__(self, table, pkeys, log, conf):
+    dist_fields: Optional[List[str]]
+    run_analyze: int
+    method: int
+    temp_present: bool
+
+    def __init__(self, table: str, pkeys: Sequence[str], log: logging.Logger, conf: skytools.dbdict) -> None:
         super().__init__(table, pkeys, log, conf)
         self.method = self.conf['method']
         self.run_analyze = self.conf['analyze']
@@ -397,12 +424,12 @@ class BulkLoader(BaseBulkTempLoader):
         # is temp table created
         self.temp_present = False
 
-    def process(self, op, row):
+    def process(self, op: str, row: Dict[str, Any]) -> None:
         if self.method == METH_INSERT and op != 'I':
             raise Exception('%s not supported by method insert' % op)
         super().process(op, row)
 
-    def process_delete(self, curs, op_map):
+    def process_delete(self, curs: Cursor, op_map: Dict[str, List[Dict[str, Any]]]) -> None:
         """Process delete list"""
         data = op_map['D']
         cnt = len(data)
@@ -418,7 +445,7 @@ class BulkLoader(BaseBulkTempLoader):
             self.log.warning("%s: Delete mismatch: expected=%s deleted=%d",
                              self.table, cnt, curs.rowcount)
 
-    def process_update(self, curs, op_map):
+    def process_update(self, curs: Cursor, op_map: Dict[str, List[Dict[str, Any]]]) -> None:
         """Process update list"""
         data = op_map['U']
         # original update list count
@@ -455,7 +482,7 @@ class BulkLoader(BaseBulkTempLoader):
                 # due bizgres bug
                 self.insert(curs)
 
-    def process_insert(self, curs, op_map):
+    def process_insert(self, curs: Cursor, op_map: Dict[str, List[Dict[str, Any]]]) -> None:
         """Process insert list"""
         data = op_map['I']
         cnt = len(data)
@@ -466,15 +493,17 @@ class BulkLoader(BaseBulkTempLoader):
         # copy into target table (no temp used)
         self.bulk_insert(curs, data, table=self.qtable)
 
-    def bulk_flush(self, curs, op_map):
+    def bulk_flush(self, curs: Cursor, op_map: Dict[str, List[Dict[str, Any]]]) -> None:
         self.log.debug("bulk_flush: %s  (I/U/D = %d/%d/%d)", self.table,
                        len(op_map['I']), len(op_map['U']), len(op_map['D']))
 
         # fetch distribution fields
         if self.dist_fields is None:
             self.dist_fields = self.find_dist_fields(curs)
+            assert self.dist_fields
             self.log.debug("Key fields: %s  Dist fields: %s",
-                           ",".join(self.pkeys), ",".join(self.dist_fields))
+                           ",".join(self.pkeys or []),
+                           ",".join(self.dist_fields or []))
             # add them to key
             for key in self.dist_fields:
                 if key not in self.keys:
@@ -489,13 +518,13 @@ class BulkLoader(BaseBulkTempLoader):
         # truncate or drop temp table
         self.clean_temp(curs)
 
-    def check_temp(self, curs):
+    def check_temp(self, curs: Cursor) -> None:
         if USE_REAL_TABLE:
             self.temp_present = skytools.exists_table(curs, self.temp)
         else:
             self.temp_present = skytools.exists_temp_table(curs, self.temp)
 
-    def clean_temp(self, curs):
+    def clean_temp(self, curs: Cursor) -> None:
         # delete remaining rows
         if self.temp_present:
             if USE_LONGLIVED_TEMP_TABLES or USE_REAL_TABLE:
@@ -504,7 +533,7 @@ class BulkLoader(BaseBulkTempLoader):
                 # fscking problems with long-lived temp tables
                 self.drop(curs)
 
-    def create_temp(self, curs):
+    def create_temp(self, curs: Cursor) -> bool:
         """ check if temp table exists. Returns False if using existing temp
         table and True if creating new
         """
@@ -516,7 +545,7 @@ class BulkLoader(BaseBulkTempLoader):
         self.temp_present = True
         return True
 
-    def bulk_insert(self, curs, data, table=None):
+    def bulk_insert(self, curs: Cursor, data: DictRows, table: Optional[str] = None) -> None:
         """Copy data to table. If table not provided, use temp table.
         When re-using existing temp table, it is always truncated first and
         analyzed after copy.
@@ -524,19 +553,19 @@ class BulkLoader(BaseBulkTempLoader):
         if not data:
             return
         _use_temp = table is None
+        xtable = self.temp if table is None else table
         # if table not specified use temp
         if _use_temp:
-            table = self.temp
             # truncate when re-using existing table
             if not self.create_temp(curs):
                 self.truncate(curs)
-        self.log.debug("bulk: COPY %d rows into %s", len(data), table)
-        skytools.magic_insert(curs, table, data, self.fields,
+        self.log.debug("bulk: COPY %d rows into %s", len(data), xtable)
+        skytools.magic_insert(curs, xtable, data, self.fields,
                               quoted_table=True)
         if _use_temp and self.run_analyze:
             self.analyze(curs)
 
-    def find_dist_fields(self, curs):
+    def find_dist_fields(self, curs: Cursor) -> List[str]:
         """Find GP distribution keys"""
         if not skytools.exists_table(curs, "pg_catalog.gp_distribution_policy"):
             return []
@@ -564,26 +593,29 @@ LOADERS = {'direct': DirectLoader, 'bulk': BulkLoader}
 #------------------------------------------------------------------------------
 
 class RowHandler:
-    def __init__(self, log):
+    log: logging.Logger
+    table_map: Dict[str, BaseLoader]
+
+    def __init__(self, log: logging.Logger) -> None:
         self.log = log
         self.table_map = {}
 
-    def add_table(self, table, ldr_cls, pkeys, args):
+    def add_table(self, table: str, ldr_cls: Type[BaseLoader], pkeys: List[str], args: dbdict) -> None:
         self.table_map[table] = ldr_cls(table, pkeys, self.log, args)
 
-    def process(self, table, op, row):
+    def process(self, table: str, op: str, row: Dict[str, Any]) -> None:
         try:
             self.table_map[table].process(op, row)
         except KeyError:
             raise Exception("No loader for table %s" % table) from None
 
-    def flush(self, curs):
+    def flush(self, curs: Cursor) -> None:
         for ldr in self.table_map.values():
             ldr.flush(curs)
 
 
 class KeepAllRowHandler(RowHandler):
-    def process(self, table, op, row):
+    def process(self, table: str, op: str, row: Dict[str, Any]) -> None:
         """Keep all row versions.
 
         Updates are changed to inserts, deletes are ignored.
@@ -597,7 +629,7 @@ class KeepAllRowHandler(RowHandler):
 
 
 class KeepLatestRowHandler(RowHandler):
-    def process(self, table, op, row):
+    def process(self, table: str, op: str, row: Dict[str, Any]) -> None:
         """Keep latest row version.
 
         Updates are changed to delete + insert
@@ -628,11 +660,19 @@ class Dispatcher(ShardHandler):
     """
     handler_name = 'dispatch'
 
-    @property
-    def __doc__(self):
-        return self._doc_
+    dst_curs: Optional[Cursor]
+    ignored_tables: Set[str]
+    batch_info: Optional[BatchInfo]
+    pkeys: Optional[List[str]]
 
-    def __init__(self, table_name, args, dest_table):
+    @property
+    def __doc__(self) -> Optional[str]:
+        return self._doc_
+    @__doc__.setter
+    def __doc__(self, value: Optional[str]) -> None:
+        pass
+
+    def __init__(self, table_name: str, args: Dict[str, str], dest_table: str) -> None:
 
         # compat for dest-table
         dest_table = args.get('table', dest_table)
@@ -649,9 +689,9 @@ class Dispatcher(ShardHandler):
         hdlr_cls = ROW_HANDLERS[self.conf.row_mode]
         self.row_handler = hdlr_cls(self.log)
 
-    def _parse_args_from_doc(self):
+    def _parse_args_from_doc(self) -> List[Tuple[str, str, str]]:
         doc = __doc__
-        params_descr = []
+        params_descr: List[Tuple[str, str, str]] = []
         params_found = False
         for line in doc.splitlines():
             ln = line.strip()
@@ -672,7 +712,7 @@ class Dispatcher(ShardHandler):
                 params_found = True
         return params_descr
 
-    def get_config(self):
+    def get_config(self) -> dbdict:
         """Processes args dict"""
         conf = super().get_config()
         # set table mode
@@ -693,11 +733,11 @@ class Dispatcher(ShardHandler):
             conf.ignore_old_events = self.get_arg('ignore_old_events', [0, 1], 0)
         # set row mode and event types to process
         conf.row_mode = self.get_arg('row_mode', ROW_MODES)
-        event_types = self.args.get('event_types', '*')
-        if event_types == '*':
+        cf_event_types = self.args.get('event_types', '*')
+        if cf_event_types == '*':
             event_types = EVENT_TYPES
         else:
-            event_types = [evt.upper() for evt in event_types.split(',')]  # noqa
+            event_types = [evt.upper() for evt in cf_event_types.split(',')]  # noqa
             for evt in event_types:
                 if evt not in EVENT_TYPES:
                     raise Exception('Unsupported operation: %s' % evt)
@@ -722,17 +762,17 @@ class Dispatcher(ShardHandler):
                     conf.field_map[tmp[0]] = tmp[1]
         return conf
 
-    def _validate_hash_key(self):
+    def _validate_hash_key(self) -> None:
         pass  # no need for hash key when not sharding
 
-    def prepare_batch(self, batch_info, dst_curs):
+    def prepare_batch(self, batch_info: Optional[BatchInfo], dst_curs: Cursor) -> None:
         """Called on first event for this table in current batch."""
         if batch_info is not None and self.conf.table_mode != 'ignore':
             self.batch_info = batch_info
             self.dst_curs = dst_curs
         super().prepare_batch(batch_info, dst_curs)
 
-    def filter_data(self, data):
+    def filter_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process with fields skip and map"""
         fskip = self.conf.skip_fields
         fmap = self.conf.field_map
@@ -745,7 +785,7 @@ class Dispatcher(ShardHandler):
             data = dict((v, data.get(k)) for k, v in fmap.items())
         return data
 
-    def filter_pkeys(self, pkeys):
+    def filter_pkeys(self, pkeys: List[str]) -> List[str]:
         """Process with fields skip and map"""
         fskip = self.conf.skip_fields
         fmap = self.conf.field_map
@@ -755,7 +795,7 @@ class Dispatcher(ShardHandler):
             pkeys = [fmap[p] for p in pkeys if p in fmap]
         return pkeys
 
-    def _process_event(self, ev, sql_queue_func, arg):
+    def _process_event(self, ev: Event, sql_queue_func: ApplyFunc, arg: Cursor) -> None:
         """Process a event.
         Event should be added to sql_queue or executed directly.
         """
@@ -763,8 +803,6 @@ class Dispatcher(ShardHandler):
             return
         # get data
         data = skytools.db_urldecode(ev.data)
-        if self.encoding_validator:
-            data = self.encoding_validator.validate_dict(data, self.table_name)
         if len(ev.ev_type) < 2 or ev.ev_type[1] != ':':
             raise Exception('Unsupported event type: %s/extra1=%s/data=%s' % (
                             ev.ev_type, ev.ev_extra1, ev.ev_data))
@@ -795,13 +833,13 @@ class Dispatcher(ShardHandler):
                                        self.pkeys, self.conf)
         self.row_handler.process(dst, op, data)
 
-    def finish_batch(self, batch_info, dst_curs):
+    def finish_batch(self, batch_info: BatchInfo, dst_curs: Cursor) -> None:
         """Called when batch finishes."""
         if self.conf.table_mode != 'ignore':
             self.row_handler.flush(dst_curs)
         #super().finish_batch(batch_info, dst_curs)
 
-    def get_part_name(self):
+    def get_part_name(self) -> str:
         # if custom part name template given, use it
         if self.conf.part_name:
             return self.conf.part_name
@@ -809,8 +847,9 @@ class Dispatcher(ShardHandler):
         name_parts = ['parent'] + parts[:parts.index(self.conf.period) + 1]
         return '_'.join('%%(%s)s' % part for part in name_parts)
 
-    def split_format(self, ev, data):
+    def split_format(self, ev: Event, data: Dict[str, Any]) -> Tuple[str, datetime.datetime]:
         """Generates part table name from template"""
+        assert self.batch_info
         if self.conf.part_mode == 'batch_time':
             dtm = self.batch_info['batch_end']
         elif self.conf.part_mode == 'event_time':
@@ -833,13 +872,15 @@ class Dispatcher(ShardHandler):
         }
         return (self.get_part_name() % vals, dtm)
 
-    def check_part(self, dst, part_time):
+    def check_part(self, dst: str, part_time: datetime.datetime) -> None:
         """Create part table if not exists.
 
         It part_template present, execute it
         else if part function present in db, call it
         else clone master table"""
         curs = self.dst_curs
+        assert curs
+
         if (self.conf.ignore_old_events and self.conf.retention_period and
                 self.is_obsolete_partition(dst, self.conf.retention_period, self.conf.period)):
             self.ignored_tables.add(dst)
@@ -851,7 +892,7 @@ class Dispatcher(ShardHandler):
         vals = {'dest': dst,
                 'part': dst,
                 'parent': self.fq_dest_table,
-                'pkeys': ",".join(self.pkeys),  # quoting?
+                'pkeys': ",".join(self.pkeys or []),  # quoting?
                 # we do this to make sure that constraints for
                 # tables who contain a schema will still work
                 'schema_table': dst.replace(".", "__"),
@@ -860,7 +901,7 @@ class Dispatcher(ShardHandler):
                 'period': self.conf.period,
                 }
 
-        def exec_with_vals(tmpl):
+        def exec_with_vals(tmpl: str) -> bool:
             if tmpl:
                 sql = tmpl % vals
                 curs.execute(sql)
@@ -909,10 +950,12 @@ class Dispatcher(ShardHandler):
                     if tbl in self.row_handler.table_map:
                         del self.row_handler.table_map[tbl]
 
-    def drop_obsolete_partitions(self, parent_table, retention_period, partition_period):
+    def drop_obsolete_partitions(self, parent_table: str, retention_period: str, partition_period: str) -> List[str]:
         """ Drop obsolete partitions of partition-by-date parent table.
         """
         curs = self.dst_curs
+        assert curs
+
         func = RETENTION_FUNC
         args = [parent_table, retention_period, partition_period]
         sql = "select " + func + "(%s, %s, %s)"
@@ -923,10 +966,12 @@ class Dispatcher(ShardHandler):
             self.log.info("Dropped tables: %s", ", ".join(res))
         return res
 
-    def is_obsolete_partition(self, partition_table, retention_period, partition_period):
+    def is_obsolete_partition(self, partition_table: str, retention_period: str, partition_period: str) -> bool:
         """ Test partition name of partition-by-date parent table.
         """
         curs = self.dst_curs
+        assert curs
+
         func = "londiste.is_obsolete_partition"
         args = [partition_table, retention_period, partition_period]
         sql = "select " + func + "(%s, %s, %s)"
@@ -937,7 +982,7 @@ class Dispatcher(ShardHandler):
             self.log.info("Ignored table: %s", partition_table)
         return res
 
-    def real_copy(self, tablename, src_curs, dst_curs, column_list):
+    def real_copy(self, tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: Sequence[str]) -> Tuple[int, int]:
         """do actual table copy and return tuple with number of bytes and rows
         copied
         """
@@ -953,17 +998,10 @@ class Dispatcher(ShardHandler):
             _src_cols = [col for col in _src_cols if col in self.conf.field_map]
             _dst_cols = [self.conf.field_map[col] for col in _src_cols]
 
-        if self.encoding_validator:
-            def _write_hook(obj, data):
-                return self.encoding_validator.validate_copy(data, _src_cols, tablename)
-        else:
-            _write_hook = None
-
         return skytools.full_copy(tablename, src_curs, dst_curs,
                                   _src_cols, condition,
                                   dst_tablename=self.dest_table,
-                                  dst_column_list=_dst_cols,
-                                  write_hook=_write_hook)
+                                  dst_column_list=_dst_cols)
 
     def real_copy_threaded(
         self,
@@ -990,13 +1028,6 @@ class Dispatcher(ShardHandler):
             _src_cols = [col for col in _src_cols if col in self.conf.field_map]
             _dst_cols = [self.conf.field_map[col] for col in _src_cols]
 
-        _write_hook: Optional[londiste.util.WriteHook]
-        if self.encoding_validator:
-            def _write_hook(obj, data):
-                return self.encoding_validator.validate_copy(data, _src_cols, src_real_table)
-        else:
-            _write_hook = None
-
         return londiste.util.full_copy_parallel(
             src_real_table, src_curs,
             dst_db_connstr=dst_db_connstr,
@@ -1004,13 +1035,12 @@ class Dispatcher(ShardHandler):
             condition=condition,
             column_list=_src_cols,
             dst_column_list=_dst_cols,
-            write_hook=_write_hook,
             parallel=parallel,
         )
 
 
 # add arguments' description to handler's docstring
-def _install_handler_docstrings(dst_cls):
+def _install_handler_docstrings(dst_cls: Type[BaseHandler]) -> None:
     found = False
     for line in __doc__.splitlines():
         if line.startswith("== HANDLER ARGUMENTS =="):
@@ -1056,7 +1086,7 @@ BASE = {
 }
 
 
-def set_handler_doc(cls, handler_defs):
+def set_handler_doc(cls: Type[BaseHandler], handler_defs: Dict[str, str]) -> None:
     """ generate handler docstring """
     cls._doc_ = "Custom dispatch handler with default args.\n\n" \
                 "Parameters:\n"
@@ -1064,21 +1094,22 @@ def set_handler_doc(cls, handler_defs):
         cls._doc_ += "  %s = %s\n" % (k, v)
 
 
-def _generate_handlers():
+def _generate_handlers() -> None:
     for load, load_dict in LOAD.items():
         for period, period_dict in PERIOD.items():
             for mode, mode_dict in MODE.items():
                 handler_name = '_'.join(p for p in (load, period, mode) if p)
 
                 # define creator func to keep default dicts in separate context
-                def create_handler(_handler_name, _load_dict, _period_dict, _mode_dict):
+                def create_handler(_handler_name: str, _load_dict: Dict[str, str], _period_dict: Dict[str, str],
+                                   _mode_dict: Dict[str, str]) -> None:
                     default = update(_mode_dict, _period_dict, _load_dict, BASE)
 
                     @handler_args(_handler_name, Dispatcher)
-                    def handler_func(args):
+                    def handler_func(args: Dict[str, str]) -> Dict[str, str]:
                         return update(args, default)
 
-                    assert handler_func   # avoid 'unused' warning, decorator registers it
+                    #assert handler_func   # avoid 'unused' warning, decorator registers it
 
                 create_handler(handler_name, load_dict, period_dict, mode_dict)
                 hcls = __londiste_handlers__[-1]   # it was just added
@@ -1090,7 +1121,7 @@ _generate_handlers()
 
 
 @handler_args('bulk_direct', Dispatcher)
-def bulk_direct_handler(args):
+def bulk_direct_handler(args: Dict[str, str]) -> Dict[str, str]:
     return update(args, {'load_mode': 'bulk', 'table_mode': 'direct'})
 
 
@@ -1098,7 +1129,7 @@ set_handler_doc(__londiste_handlers__[-1], {'load_mode': 'bulk', 'table_mode': '
 
 
 @handler_args('direct', Dispatcher)
-def direct_handler(args):
+def direct_handler(args: Dict[str, str]) -> Dict[str, str]:
     return update(args, {'load_mode': 'direct', 'table_mode': 'direct'})
 
 

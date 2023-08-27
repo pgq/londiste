@@ -7,17 +7,19 @@ import time
 import fnmatch
 
 from logging import Logger
-from typing import List, Optional, Dict, Sequence, Mapping
+from typing import List, Optional, Dict, Sequence, Mapping, Tuple, Iterator
 
 import skytools
 
-from skytools.basetypes import DictRow
+from skytools.basetypes import DictRow, Connection, Cursor
 
+from pgq.baseconsumer import EventList
 from pgq.event import Event
 from pgq.cascade.worker import CascadedWorker
 
 from .exec_attrs import ExecAttrs
-from .handler import build_handler, load_handler_modules, BaseHandler
+from .handler import build_handler, BaseHandler
+from .handlers import load_handler_modules
 
 __all__ = ['Replicator', 'TableState',
            'TABLE_MISSING', 'TABLE_IN_COPY', 'TABLE_CATCHING_UP',
@@ -184,7 +186,7 @@ class TableState:
             return 'ok'
         return None
 
-    def parse_state(self, merge_state) -> int:
+    def parse_state(self, merge_state: Optional[str]) -> int:
         """Read state from string."""
 
         state = -1
@@ -241,14 +243,14 @@ class TableState:
             self.dest_table = self.name
 
         hstr = self.table_attrs.get('handlers', '')  # compat
-        hstr = self.table_attrs.get('handler', hstr)
+        hstr = self.table_attrs.get('handler', hstr) or ''
         self.plugin = build_handler(self.name, hstr, self.dest_table)
 
     def max_parallel_copies_reached(self) -> bool:
         return self.max_parallel_copy is not None and \
             self.copy_pos >= self.max_parallel_copy
 
-    def interesting(self, ev: Event, tick_id: int, copy_thread: bool, copy_table_name: str) -> bool:
+    def interesting(self, ev: Event, tick_id: int, copy_thread: bool, copy_table_name: Optional[str]) -> bool:
         """Check if table wants this event."""
 
         if copy_thread:
@@ -401,8 +403,9 @@ class Replicator(CascadedWorker):
     table_list: List[TableState]
     table_map: Dict[str, TableState]
     used_plugins: Dict[str, BaseHandler]
+    copy_thread: bool
 
-    def __init__(self, args: Sequence[str]):
+    def __init__(self, args: Sequence[str]) -> None:
         """Replication init."""
         super().__init__('londiste', 'db', args)
 
@@ -413,7 +416,7 @@ class Replicator(CascadedWorker):
         self.threaded_copy_pool_size = self.cf.getint('threaded_copy_pool_size', 1)
         self.copy_method_map = {}
 
-        self.copy_thread = 0
+        self.copy_thread = False
         self.set_name = self.queue_name
         self.used_plugins = {}
 
@@ -431,7 +434,7 @@ class Replicator(CascadedWorker):
         self.local_only = self.cf.getboolean('local_only', False)
         self.local_only_drop_execute = self.cf.getboolean('local_only_drop_execute', False)
 
-    def reload(self):
+    def reload(self) -> None:
         super().reload()
 
         load_handler_modules(self.cf)
@@ -448,7 +451,7 @@ class Replicator(CascadedWorker):
         self.local_only = self.cf.getboolean('local_only', False)
         self.local_only_drop_execute = self.cf.getboolean('local_only_drop_execute', False)
 
-    def fill_copy_method(self):
+    def fill_copy_method(self) -> None:
         for table_name in self.table_map:
             if table_name not in self.copy_method_map:
                 for pat in self.threaded_copy_tables:
@@ -458,21 +461,21 @@ class Replicator(CascadedWorker):
                 if table_name not in self.copy_method_map:
                     self.copy_method_map[table_name] = None
 
-    def connection_hook(self, dbname, db):
+    def connection_hook(self, dbname: str, db: Connection) -> None:
         if dbname == 'db':
             curs = db.cursor()
             curs.execute("select londiste.set_session_replication_role('replica', false)")
             db.commit()
 
     code_check_done = 0
-    def check_code(self, db):
+    def check_code(self, db: Connection) -> None:
         objs = [
             skytools.DBFunction("pgq.maint_operations", 0, sql_file="londiste.maint-upgrade.sql"),
         ]
         skytools.db_install(db.cursor(), objs, self.log)
         db.commit()
 
-    def process_remote_batch(self, src_db, tick_id, ev_list, dst_db):
+    def process_remote_batch(self, src_db: Connection, tick_id: int, ev_list: EventList, dst_db: Connection) -> None:
         "All work for a batch.  Entry point from SetConsumer."
 
         self.current_event = None
@@ -485,6 +488,7 @@ class Replicator(CascadedWorker):
 
         self.sync_database_encodings(src_db, dst_db)
 
+        assert self.batch_info
         self.cur_tick = self.batch_info['tick_id']
         self.prev_tick = self.batch_info['prev_tick_id']
 
@@ -495,6 +499,7 @@ class Replicator(CascadedWorker):
         self.copy_snapshot_cleanup(dst_db)
 
         # only main thread is allowed to restore fkeys
+        assert self._worker_state
         if not self.copy_thread and self._worker_state.process_events:
             self.restore_fkeys(dst_db)
 
@@ -518,7 +523,7 @@ class Replicator(CascadedWorker):
         # finalize table changes
         self.save_table_state(dst_curs)
 
-    def sync_tables(self, src_db, dst_db):
+    def sync_tables(self, src_db: Connection, dst_db: Connection) -> None:
         """Table sync loop.
 
         Calls appropriate handles, which is expected to
@@ -549,8 +554,8 @@ class Replicator(CascadedWorker):
             self.load_table_state(dst_db.cursor())
             dst_db.commit()
 
-    dsync_backup = None
-    def sync_from_main_thread(self, cnt, src_db, dst_db):
+    dsync_backup: Optional[Tuple[int, Optional[int], Optional[str]]] = None
+    def sync_from_main_thread(self, cnt: Counter, src_db: Connection, dst_db: Connection) -> int:
         "Main thread sync logic."
 
         # This operates on all table, any amount can be in any state
@@ -572,7 +577,7 @@ class Replicator(CascadedWorker):
         # now check if do-sync is needed
         for t in self.get_tables_in_state(TABLE_WANNA_SYNC):
             # copy thread wants sync, if not behind, do it
-            if self.cur_tick >= t.sync_tick_id:
+            if t.sync_tick_id is not None and self.cur_tick >= t.sync_tick_id:
                 if dsync_ok:
                     self.change_table_state(dst_db, t, TABLE_DO_SYNC, self.cur_tick)
                     ret = SYNC_LOOP
@@ -631,7 +636,7 @@ class Replicator(CascadedWorker):
 
         return ret
 
-    def sync_from_copy_thread(self, cnt, src_db, dst_db):
+    def sync_from_copy_thread(self, cnt: Counter, src_db: Connection, dst_db: Connection) -> int:
         "Copy thread sync logic."
 
         # somebody may have done remove-table in the meantime
@@ -646,6 +651,8 @@ class Replicator(CascadedWorker):
             # these settings may cause copy to miss right tick
             self.pgq_min_count = None
             self.pgq_min_interval = None
+
+            assert t.sync_tick_id
 
             # main thread is waiting, catch up, then handle over
             if self.cur_tick == t.sync_tick_id:
@@ -690,12 +697,13 @@ class Replicator(CascadedWorker):
             # nothing to do
             return SYNC_EXIT
 
-    def restore_copy_ddl(self, ts, dst_db):
+    def restore_copy_ddl(self, ts: TableState, dst_db: Connection) -> None:
         self.log.info("%s: restoring DDL", ts.name)
         dst_curs = dst_db.cursor()
-        for ddl in skytools.parse_statements(ts.dropped_ddl):
-            self.log.info(ddl)
-            dst_curs.execute(ddl)
+        if ts.dropped_ddl:
+            for ddl in skytools.parse_statements(ts.dropped_ddl):
+                self.log.info(ddl)
+                dst_curs.execute(ddl)
         q = "select * from londiste.local_set_table_struct(%s, %s, NULL)"
         self.exec_cmd(dst_curs, q, [self.queue_name, ts.name])
         ts.dropped_ddl = None
@@ -706,11 +714,11 @@ class Replicator(CascadedWorker):
         dst_curs.execute("analyze " + skytools.quote_fqident(ts.name))
         dst_db.commit()
 
-    def do_copy(self, tbl, src_db, dst_db):
+    def do_copy(self, tbl: TableState, src_db: Connection, dst_db: Connection) -> None:
         """Callback for actual copy implementation."""
         raise Exception('do_copy not implemented')
 
-    def process_remote_event(self, src_curs, dst_curs, ev):
+    def process_remote_event(self, src_curs: Cursor, dst_curs: Cursor, ev: Event) -> None:
         """handle one event"""
 
         self.log.debug(
@@ -748,7 +756,7 @@ class Replicator(CascadedWorker):
         # no point keeping it around longer
         self.current_event = None
 
-    def handle_data_event(self, ev, dst_curs):
+    def handle_data_event(self, ev: Event, dst_curs: Cursor) -> None:
         """handle one data event"""
         t = self.get_table_by_name(ev.extra1)
         if not t or not t.interesting(ev, self.cur_tick, self.copy_thread, self.copy_table_name):
@@ -760,11 +768,12 @@ class Replicator(CascadedWorker):
         except KeyError:
             p = t.get_plugin()
             self.used_plugins[ev.extra1] = p
+            assert self.batch_info
             p.prepare_batch(self.batch_info, dst_curs)
 
         p.process_event(ev, self.apply_sql, dst_curs)
 
-    def handle_truncate_event(self, ev, dst_curs):
+    def handle_truncate_event(self, ev: Event, dst_curs: Cursor) -> None:
         """handle one truncate event"""
         t = self.get_table_by_name(ev.extra1)
         if not t or not t.interesting(ev, self.cur_tick, self.copy_thread, self.copy_table_name):
@@ -778,6 +787,7 @@ class Replicator(CascadedWorker):
         except KeyError:
             p = t.get_plugin()
             self.used_plugins[ev.extra1] = p
+            assert self.batch_info
             p.prepare_batch(self.batch_info, dst_curs)
 
         if p.conf.get('ignore_truncate'):
@@ -794,7 +804,7 @@ class Replicator(CascadedWorker):
         self.flush_sql(dst_curs)
         dst_curs.execute(sql)
 
-    def handle_execute_event(self, ev, dst_curs):
+    def handle_execute_event(self, ev: Event, dst_curs: Cursor) -> None:
         """handle one EXECUTE event"""
 
         if self.copy_thread:
@@ -839,7 +849,7 @@ class Replicator(CascadedWorker):
         self.exec_cmd(dst_curs, q, [self.queue_name, fname], commit=False)
         dst_curs.execute("select londiste.set_session_replication_role('replica', true)")
 
-    def apply_sql(self, sql, dst_curs):
+    def apply_sql(self, sql: str, dst_curs: Cursor) -> None:
 
         # how many queries to batch together, drop batching on error
         limit = 200
@@ -850,7 +860,7 @@ class Replicator(CascadedWorker):
         if len(self.sql_list) >= limit:
             self.flush_sql(dst_curs)
 
-    def flush_sql(self, dst_curs):
+    def flush_sql(self, dst_curs: Cursor) -> None:
         """Send all buffered statements to DB."""
 
         if len(self.sql_list) == 0:
@@ -861,7 +871,7 @@ class Replicator(CascadedWorker):
 
         dst_curs.execute(buf)
 
-    def add_set_table(self, dst_curs, tbl):
+    def add_set_table(self, dst_curs: Cursor, tbl: str) -> None:
         """There was new table added to root, remember it."""
 
         if self.register_only_tables and tbl not in self.register_only_tables:
@@ -871,7 +881,7 @@ class Replicator(CascadedWorker):
         q = "select londiste.global_add_table(%s, %s)"
         dst_curs.execute(q, [self.set_name, tbl])
 
-    def remove_set_table(self, dst_curs, tbl):
+    def remove_set_table(self, dst_curs: Cursor, tbl: str) -> None:
         """There was table dropped from root, remember it."""
         if tbl in self.table_map:
             t = self.table_map[tbl]
@@ -880,13 +890,13 @@ class Replicator(CascadedWorker):
         q = "select londiste.global_remove_table(%s, %s)"
         dst_curs.execute(q, [self.set_name, tbl])
 
-    def remove_set_seq(self, dst_curs, seq):
+    def remove_set_seq(self, dst_curs: Cursor, seq: str) -> None:
         """There was seq dropped from root, remember it."""
 
         q = "select londiste.global_remove_seq(%s, %s)"
         dst_curs.execute(q, [self.set_name, seq])
 
-    def setup_local_only_filter(self):
+    def setup_local_only_filter(self) -> None:
         # store event filter
         if self.local_only:
             # create list of tables
@@ -910,7 +920,7 @@ class Replicator(CascadedWorker):
             # no filter
             self.consumer_filter = None
 
-    def load_table_state(self, curs):
+    def load_table_state(self, curs: Cursor) -> None:
         """Load table state from database.
 
         Todo: if all tables are OK, there is no need
@@ -938,7 +948,7 @@ class Replicator(CascadedWorker):
         self.fill_copy_method()
         self.setup_local_only_filter()
 
-    def refresh_state(self, dst_db, full_logic=True):
+    def refresh_state(self, dst_db: Connection, full_logic: bool = True) -> DictRow:
         res = super().refresh_state(dst_db, full_logic=full_logic)
 
         # make sure local_only filter is loaded on boot
@@ -948,7 +958,7 @@ class Replicator(CascadedWorker):
 
         return res
 
-    def get_state_map(self, curs):
+    def get_state_map(self, curs: Cursor) -> Dict[str, TableState]:
         """Get dict of table states."""
 
         q = "select * from londiste.get_table_list(%s)"
@@ -963,12 +973,12 @@ class Replicator(CascadedWorker):
             new_map[t.name] = t
         return new_map
 
-    def save_table_state(self, curs):
+    def save_table_state(self, curs: Cursor) -> None:
         """Store changed table state in database."""
 
         for t in self.table_list:
             # backwards compat: move plugin-only dest_table to table_info
-            if t.dest_table != t.plugin.dest_table:
+            if t.plugin and t.dest_table != t.plugin.dest_table:
                 self.log.info("Overwriting .dest_table from plugin: tbl=%s  dst=%s",
                               t.name, t.plugin.dest_table)
                 q = "update londiste.table_info set dest_table = %s"\
@@ -985,7 +995,7 @@ class Replicator(CascadedWorker):
                              t.name, t.str_snapshot, merge_state])
             t.changed = 0
 
-    def change_table_state(self, dst_db, tbl, state, tick_id=None):
+    def change_table_state(self, dst_db: Connection, tbl: TableState, state: int, tick_id: Optional[int] = None) -> None:
         """Chage state for table."""
 
         tbl.change_state(state, tick_id)
@@ -994,14 +1004,14 @@ class Replicator(CascadedWorker):
 
         self.log.info("Table %s status changed to '%s'", tbl.name, tbl.render_state())
 
-    def get_tables_in_state(self, state):
+    def get_tables_in_state(self, state: int) -> Iterator[TableState]:
         "get all tables with specific state"
 
         for t in self.table_list:
             if t.state == state:
                 yield t
 
-    def get_table_by_name(self, name):
+    def get_table_by_name(self, name: str) -> Optional[TableState]:
         """Returns cached state object."""
         if name.find('.') < 0:
             name = "public.%s" % name
@@ -1009,12 +1019,12 @@ class Replicator(CascadedWorker):
             return self.table_map[name]
         return None
 
-    def launch_copy(self, tbl_stat):
+    def launch_copy(self, tbl_stat: TableState) -> None:
         """Run parallel worker for copy."""
         self.log.info("Launching copy process")
         main_exe = sys.argv[0]
-        conf = self.cf.filename
-        cmd = [main_exe, conf, 'copy', tbl_stat.name, '-d']
+        conf = self.cf.filename or 'undefined'
+        cmd: List[str] = [main_exe, conf, 'copy', tbl_stat.name, '-d']
 
         # pass same verbosity options as main script got
         if self.options.quiet:
@@ -1037,7 +1047,7 @@ class Replicator(CascadedWorker):
         if res != 0:
             self.log.error("Failed to launch copy process, result=%d", res)
 
-    def sync_database_encodings(self, src_db, dst_db):
+    def sync_database_encodings(self, src_db: Connection, dst_db: Connection) -> None:
         """Make sure client_encoding is same on both side."""
 
         try:
@@ -1055,7 +1065,7 @@ class Replicator(CascadedWorker):
             if src_enc != dst_enc:
                 dst_curs.execute("set client_encoding = %s", [src_enc])
 
-    def copy_snapshot_cleanup(self, dst_db):
+    def copy_snapshot_cleanup(self, dst_db: Connection) -> None:
         """Remove unnecessary snapshot info from tables."""
         no_lag = not self.work_state
         changes = False
@@ -1068,7 +1078,7 @@ class Replicator(CascadedWorker):
             self.save_table_state(dst_db.cursor())
             dst_db.commit()
 
-    def restore_fkeys(self, dst_db):
+    def restore_fkeys(self, dst_db: Connection) -> None:
         """Restore fkeys that have both tables on sync."""
         dst_curs = dst_db.cursor()
 
@@ -1091,14 +1101,14 @@ class Replicator(CascadedWorker):
         for row in fkey_list:
             self.log.info('Creating fkey: %s (%s --> %s)', row['fkey_name'], row['from_table'], row['to_table'])
             if do_compat_restore:
-                q2 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s)"
-                dst_curs.execute(q2, row)
+                q2 = "select londiste.restore_table_fkey(%s, %s)"
+                dst_curs.execute(q2, [row['from_table'], row['fkey_name']])
                 dst_db.commit()
             else:
-                q3 = "select londiste.restore_table_fkey(%(from_table)s, %(fkey_name)s, true)"
+                q3 = "select londiste.restore_table_fkey(%s, %s, true)"
                 done = False
                 while not done:
-                    dst_curs.execute(q3, row)
+                    dst_curs.execute(q3, [row['from_table'], row['fkey_name']])
                     sql = dst_curs.fetchone()[0]
                     if sql:
                         dst_curs.execute(sql)
@@ -1106,7 +1116,7 @@ class Replicator(CascadedWorker):
                         done = True
                     dst_db.commit()
 
-    def drop_fkeys(self, dst_db, table_name):
+    def drop_fkeys(self, dst_db: Connection, table_name: str) -> None:
         """Drop all foreign keys to and from this table.
 
         They need to be dropped one at a time to avoid deadlocks with user code.
@@ -1118,11 +1128,11 @@ class Replicator(CascadedWorker):
         fkey_list = dst_curs.fetchall()
         for row in fkey_list:
             self.log.info('Dropping fkey: %s', row['fkey_name'])
-            q2 = "select londiste.drop_table_fkey(%(from_table)s, %(fkey_name)s)"
-            dst_curs.execute(q2, row)
+            q2 = "select londiste.drop_table_fkey(%s, %s)"
+            dst_curs.execute(q2, [row['from_table'], row['fkey_name']])
             dst_db.commit()
 
-    def process_root_node(self, dst_db):
+    def process_root_node(self, dst_db: Connection) -> None:
         """On root node send seq changes to queue."""
 
         super().process_root_node(dst_db)
@@ -1130,7 +1140,7 @@ class Replicator(CascadedWorker):
         q = "select * from londiste.root_check_seqs(%s)"
         self.exec_cmd(dst_db, q, [self.queue_name])
 
-    def update_seq(self, dst_curs, ev):
+    def update_seq(self, dst_curs: Cursor, ev: Event) -> None:
         if self.copy_thread:
             return
 
@@ -1139,7 +1149,7 @@ class Replicator(CascadedWorker):
         q = "select * from londiste.global_update_seq(%s, %s, %s)"
         self.exec_cmd(dst_curs, q, [self.queue_name, seq, val])
 
-    def copy_event(self, dst_curs, ev, filtered_copy):
+    def copy_event(self, dst_curs: Cursor, ev: Event, filtered_copy: int) -> None:
         # filtered_copy means merge-leaf
         # send only data events down (skipping seqs also)
         if filtered_copy:
@@ -1157,13 +1167,14 @@ class Replicator(CascadedWorker):
                     p.prepare_batch(None, dst_curs)
 
                 # handler may rewrite or drop the event
-                ev = p.get_copy_event(ev, self.queue_name)
-                if ev is None:
+                ev2 = p.get_copy_event(ev, self.queue_name)
+                if ev2 is None:
                     return
+                ev = ev2
 
         super().copy_event(dst_curs, ev, filtered_copy)
 
-    def exception_hook(self, det, emsg):
+    def exception_hook(self, det: Exception, emsg: str) -> None:
         # add event info to error message
         if self.current_event:
             ev = self.current_event

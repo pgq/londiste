@@ -1,21 +1,27 @@
 """Londiste setup and sanity checker.
 """
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Dict, List, Any, cast
 
 import os
 import re
 import sys
+import optparse
 
 import skytools
+from skytools.basetypes import Connection, Cursor, DictRow
+
+#from pgq import BatchInfo
 
 from pgq.cascade.admin import CascadeAdmin
+from pgq.cascade.nodeinfo import NodeInfo
 
 from .exec_attrs import ExecAttrs
 from .handler import (
-    create_handler_string, build_handler, load_handler_modules,
+    create_handler_string, build_handler,
     show as show_handlers,
 )
+from .handlers import load_handler_modules
 from .util import find_copy_source
 
 __all__ = ['LondisteSetup']
@@ -35,14 +41,14 @@ class LondisteSetup(CascadeAdmin):
     register_skip_tables: Optional[Sequence[str]] = None
     register_skip_seqs: Optional[Sequence[str]] = None
 
-    def install_code(self, db):
+    def install_code(self, db: Connection) -> None:
         self.extra_objs = [
             skytools.DBSchema("londiste", sql='create extension londiste'),
             #skytools.DBFunction("londiste.global_add_table", 2, sql_file='londiste.upgrade_2.1_to_3.1.sql'),
         ]
         super().install_code(db)
 
-    def __init__(self, args):
+    def __init__(self, args: Sequence[str]) -> None:
         """Londiste setup init."""
         super().__init__('londiste', 'db', args, worker_setup=True)
 
@@ -63,7 +69,7 @@ class LondisteSetup(CascadeAdmin):
 
         load_handler_modules(self.cf)
 
-    def init_optparse(self, parser=None):
+    def init_optparse(self, parser: Optional[optparse.OptionParser] = None) -> optparse.OptionParser:
         """Add londiste switches to CascadeAdmin ones."""
 
         p = super().init_optparse(parser)
@@ -109,7 +115,7 @@ class LondisteSetup(CascadeAdmin):
                      help="tables: show only table names (for scripting)", default=False)
         return p
 
-    def extra_init(self, node_type, node_db, provider_db):
+    def extra_init(self, node_type: str, node_db: Connection, provider_db: Optional[Connection]) -> None:
         """Callback from CascadeAdmin init."""
         if not provider_db:
             return
@@ -145,17 +151,18 @@ class LondisteSetup(CascadeAdmin):
         node_db.commit()
         provider_db.commit()
 
-    def is_root(self):
+    def is_root(self) -> bool:
+        assert self.queue_info
         return self.queue_info.local_node.type == 'root'
 
-    def set_lock_timeout(self, curs):
+    def set_lock_timeout(self, curs: Cursor) -> None:
         ms = int(1000 * self.lock_timeout)
         if ms > 0:
             q = "SET LOCAL statement_timeout = %d" % ms
             self.log.debug(q)
             curs.execute(q)
 
-    def cmd_add_table(self, *args):
+    def cmd_add_table(self, *tables: str) -> None:
         """Attach table(s) to local node."""
 
         self.load_local_info()
@@ -176,7 +183,7 @@ class LondisteSetup(CascadeAdmin):
         dst_db.commit()
 
         needs_tbl = self.handler_needs_table()
-        args = self.expand_arg_list(dst_db, 'r', False, args, needs_tbl)
+        args = self.expand_arg_list(dst_db, 'r', False, tables, needs_tbl)
 
         # pick proper create flags
         if self.options.create_full:
@@ -189,6 +196,8 @@ class LondisteSetup(CascadeAdmin):
         # search for usable copy node if requested & needed
         if (self.options.find_copy_node and create_flags != 0
                 and needs_tbl and not self.is_root()):
+            assert self.queue_name
+            assert self.provider_location
             src_name, _, _ = find_copy_source(self, self.queue_name, args, "?", self.provider_location)
             self.options.copy_node = src_name
             self.close_database('provider_db')
@@ -225,7 +234,7 @@ class LondisteSetup(CascadeAdmin):
         if self.options.wait_sync:
             self.wait_for_sync(dst_db)
 
-    def add_table(self, src_db, dst_db, tbl, create_flags, src_tbls):
+    def add_table(self, src_db: Connection, dst_db: Connection, tbl: str, create_flags: int, src_tbls: Dict[str, DictRow]) -> None:
         # use full names
         tbl = skytools.fq_name(tbl)
         dest_table = self.options.dest_table or tbl
@@ -270,7 +279,7 @@ class LondisteSetup(CascadeAdmin):
 
         tgargs = self.build_tgargs()
 
-        attrs = {}
+        attrs: Dict[str, str] = {}
 
         if self.options.handler:
             attrs['handler'] = self.build_handler(tbl, tgargs, self.options.dest_table)
@@ -282,7 +291,7 @@ class LondisteSetup(CascadeAdmin):
 
         if not self.options.expect_sync:
             if self.options.skip_truncate:
-                attrs['skip_truncate'] = 1
+                attrs['skip_truncate'] = "1"
 
         if self.options.max_parallel_copy:
             attrs['max_parallel_copy'] = self.options.max_parallel_copy
@@ -297,9 +306,9 @@ class LondisteSetup(CascadeAdmin):
         self.exec_cmd(dst_curs, q, args)
         dst_db.commit()
 
-    def build_tgargs(self):
+    def build_tgargs(self) -> List[str]:
         """Build trigger args"""
-        tgargs = []
+        tgargs: List[str] = []
         if self.options.trigger_arg:
             tgargs = self.options.trigger_arg
         tgflags = self.options.trigger_flags
@@ -315,21 +324,21 @@ class LondisteSetup(CascadeAdmin):
             tgargs.append('expect_sync')
         return tgargs
 
-    def build_handler(self, tbl, tgargs, dest_table=None):
+    def build_handler(self, tbl: str, tgargs: List[str], dest_table: Optional[str] = None) -> str:
         """Build handler and return handler string"""
         hstr = create_handler_string(self.options.handler, self.options.handler_arg)
         p = build_handler(tbl, hstr, dest_table)
         p.add(tgargs)
         return hstr
 
-    def handler_needs_table(self):
+    def handler_needs_table(self) -> bool:
         if self.options.handler:
             hstr = create_handler_string(self.options.handler, self.options.handler_arg)
             p = build_handler('unused.string', hstr, None)
             return p.needs_table()
         return True
 
-    def sync_table_list(self, dst_curs, src_tbls, dst_tbls):
+    def sync_table_list(self, dst_curs: Cursor, src_tbls: Dict[str, DictRow], dst_tbls: Dict[str, DictRow]) -> None:
         for tbl in src_tbls.keys():
             if self.register_only_tables and tbl not in self.register_only_tables:
                 continue
@@ -339,7 +348,7 @@ class LondisteSetup(CascadeAdmin):
             if tbl not in dst_tbls:
                 self.log.info("Table %s info missing from subscriber, adding", tbl)
                 self.exec_cmd(dst_curs, q, [self.set_name, tbl])
-                dst_tbls[tbl] = {'local': False, 'dest_table': tbl}
+                dst_tbls[tbl] = cast(DictRow, {'local': False, 'dest_table': tbl})
         for tbl in list(dst_tbls.keys()):
             q = "select * from londiste.global_remove_table(%s, %s)"
             if tbl not in src_tbls:
@@ -347,7 +356,7 @@ class LondisteSetup(CascadeAdmin):
                 self.exec_cmd(dst_curs, q, [self.set_name, tbl])
                 del dst_tbls[tbl]
 
-    def fetch_set_tables(self, curs):
+    def fetch_set_tables(self, curs: Cursor) -> Dict[str, DictRow]:
         q = "select table_name, local, "\
             " coalesce(dest_table, table_name) as dest_table "\
             " from londiste.get_table_list(%s)"
@@ -357,14 +366,14 @@ class LondisteSetup(CascadeAdmin):
             res[row[0]] = row
         return res
 
-    def cmd_remove_table(self, *args):
+    def cmd_remove_table(self, *tables: str) -> None:
         """Detach table(s) from local node."""
         db = self.get_database('db')
-        args = self.expand_arg_list(db, 'r', True, args)
+        args = self.expand_arg_list(db, 'r', True, tables)
         q = "select * from londiste.local_remove_table(%s, %s)"
         self.exec_cmd_many(db, q, [self.set_name], args)
 
-    def cmd_change_handler(self, tbl):
+    def cmd_change_handler(self, tbl: str) -> None:
         """Change handler (table_attrs) of the replicated table."""
 
         self.load_local_info()
@@ -381,8 +390,8 @@ class LondisteSetup(CascadeAdmin):
             self.log.error("Table %s not found on this node", tbl)
             sys.exit(1)
 
-        attrs, dest_table = curs.fetchone()
-        attrs = skytools.db_urldecode(attrs or '')
+        r_attrs, dest_table = curs.fetchone()
+        attrs = skytools.db_urldecode(r_attrs or '')
         old_handler = attrs.get('handler')
 
         tgargs = self.build_tgargs()
@@ -408,7 +417,7 @@ class LondisteSetup(CascadeAdmin):
         self.exec_cmd(curs, q, args)
         db.commit()
 
-    def cmd_add_seq(self, *args):
+    def cmd_add_seq(self, *seqs: str) -> None:
         """Attach seqs(s) to local node."""
         dst_db = self.get_database('db')
         dst_curs = dst_db.cursor()
@@ -421,7 +430,7 @@ class LondisteSetup(CascadeAdmin):
         self.sync_seq_list(dst_curs, src_seqs, dst_seqs)
         dst_db.commit()
 
-        args = self.expand_arg_list(dst_db, 'S', False, args)
+        args = self.expand_arg_list(dst_db, 'S', False, seqs)
 
         # pick proper create flags
         if self.options.create_full:
@@ -437,7 +446,7 @@ class LondisteSetup(CascadeAdmin):
             self.add_seq(src_db, dst_db, seq, create_flags)
         dst_db.commit()
 
-    def add_seq(self, src_db, dst_db, seq, create_flags):
+    def add_seq(self, src_db: Connection, dst_db: Connection, seq: str, create_flags: int) -> None:
         src_curs = src_db.cursor()
         dst_curs = dst_db.cursor()
         seq_exists = skytools.exists_sequence(dst_curs, seq)
@@ -462,7 +471,7 @@ class LondisteSetup(CascadeAdmin):
         q = "select * from londiste.local_add_seq(%s, %s)"
         self.exec_cmd(dst_curs, q, [self.set_name, seq])
 
-    def fetch_seqs(self, curs):
+    def fetch_seqs(self, curs: Cursor) -> Dict[str, DictRow]:
         q = "select seq_name, last_value, local from londiste.get_seq_list(%s)"
         curs.execute(q, [self.set_name])
         res = {}
@@ -470,7 +479,7 @@ class LondisteSetup(CascadeAdmin):
             res[row[0]] = row
         return res
 
-    def sync_seq_list(self, dst_curs, src_seqs, dst_seqs):
+    def sync_seq_list(self, dst_curs: Cursor, src_seqs: Dict[str, DictRow], dst_seqs: Dict[str, DictRow]) -> None:
         for seq in src_seqs.keys():
             q = "select * from londiste.global_update_seq(%s, %s, %s)"
             if self.register_only_seqs and seq not in self.register_only_seqs:
@@ -480,9 +489,9 @@ class LondisteSetup(CascadeAdmin):
             if seq not in dst_seqs:
                 self.log.info("Sequence %s info missing from subscriber, adding", seq)
                 self.exec_cmd(dst_curs, q, [self.set_name, seq, src_seqs[seq]['last_value']])
-                tmp = src_seqs[seq].copy()
+                tmp = dict(src_seqs[seq].items())
                 tmp['local'] = False
-                dst_seqs[seq] = tmp
+                dst_seqs[seq] = cast(DictRow, tmp)
         for seq in dst_seqs.keys():
             q = "select * from londiste.global_remove_seq(%s, %s)"
             if seq not in src_seqs:
@@ -490,17 +499,17 @@ class LondisteSetup(CascadeAdmin):
                 self.exec_cmd(dst_curs, q, [self.set_name, seq])
                 del dst_seqs[seq]
 
-    def cmd_remove_seq(self, *args):
+    def cmd_remove_seq(self, *seqs: str) -> None:
         """Detach seqs(s) from local node."""
         q = "select * from londiste.local_remove_seq(%s, %s)"
         db = self.get_database('db')
-        args = self.expand_arg_list(db, 'S', True, args)
+        args = self.expand_arg_list(db, 'S', True, seqs)
         self.exec_cmd_many(db, q, [self.set_name], args)
 
-    def cmd_resync(self, *args):
+    def cmd_resync(self, *tables: str) -> None:
         """Reload data from provider node."""
         db = self.get_database('db')
-        args = self.expand_arg_list(db, 'r', True, args)
+        args = self.expand_arg_list(db, 'r', True, tables)
 
         if not self.options.find_copy_node:
             self.load_local_info()
@@ -540,14 +549,15 @@ class LondisteSetup(CascadeAdmin):
         q = "select * from londiste.local_set_table_state(%s, %s, null, null)"
         self.exec_cmd_many(db, q, [self.set_name], args)
 
-    def cmd_tables(self):
+    def cmd_tables(self) -> None:
         """Show attached tables."""
         db = self.get_database('db')
 
-        def show_attr(a):
+        def show_attr(a: str) -> str:
             if a:
-                return skytools.db_urldecode(a)
+                return repr(skytools.db_urldecode(a))
             return ''
+
         if self.options.names_only:
             sql = """select table_name
             from londiste.get_table_list(%s) where local
@@ -567,33 +577,35 @@ class LondisteSetup(CascadeAdmin):
             self.display_table(db, "Tables on node", q, [self.set_name],
                                fieldfmt={'table_attrs': show_attr})
 
-    def cmd_seqs(self):
+    def cmd_seqs(self) -> None:
         """Show attached seqs."""
         q = "select seq_name, local, last_value from londiste.get_seq_list(%s)"
         db = self.get_database('db')
         self.display_table(db, "Sequences on node", q, [self.set_name])
 
-    def cmd_missing(self):
+    def cmd_missing(self) -> None:
         """Show missing tables on local node."""
         q = "select * from londiste.local_show_missing(%s)"
         db = self.get_database('db')
         self.display_table(db, "Missing objects on node", q, [self.set_name])
 
-    def cmd_check(self):
+    def cmd_check(self) -> None:
         """TODO: check if structs match"""
         pass
-    def cmd_fkeys(self):
+
+    def cmd_fkeys(self) -> None:
         """TODO: show removed fkeys."""
         pass
-    def cmd_triggers(self):
+
+    def cmd_triggers(self) -> None:
         """TODO: show removed triggers."""
         pass
 
-    def cmd_show_handlers(self, *args):
+    def cmd_show_handlers(self, *args: str) -> None:
         """Show help about handlers."""
         show_handlers(args)
 
-    def cmd_execute(self, *files):
+    def cmd_execute(self, *files: str) -> None:
         db = self.get_database('db')
         curs = db.cursor()
 
@@ -635,10 +647,11 @@ class LondisteSetup(CascadeAdmin):
             self.exec_cmd(db, q, [self.queue_name, fname], commit=False)
         db.commit()
 
-    def get_provider_db(self):
+    def get_provider_db(self) -> Connection:
         if self.options.copy_node:
             # use custom node for copy
             source_node = self.options.copy_node
+            assert self.queue_info
             m = self.queue_info.get_member(source_node)
             if not m:
                 raise skytools.UsageError("Cannot find node <%s>" % (source_node,))
@@ -654,7 +667,7 @@ class LondisteSetup(CascadeAdmin):
 
         return self.get_database('provider_db', connstr=self.provider_location, profile='remote')
 
-    def expand_arg_list(self, db, kind, existing, args, needs_tbl=True):
+    def expand_arg_list(self, db: Connection, kind: str, existing: bool, args: Sequence[str], needs_tbl: bool=True) -> List[str]:
         curs = db.cursor()
 
         if kind == 'S':
@@ -665,15 +678,15 @@ class LondisteSetup(CascadeAdmin):
             raise Exception("bug")
         q2 = "select obj_name from londiste.local_show_missing(%%s) where obj_kind = '%s'" % kind
 
-        lst_exists = []
-        map_exists = {}
+        lst_exists: List[str] = []
+        map_exists: Dict[str, int] = {}
         curs.execute(q1, [self.set_name])
         for row in curs.fetchall():
             lst_exists.append(row[0])
             map_exists[row[0]] = 1
 
-        lst_missing = []
-        map_missing = {}
+        lst_missing: List[str] = []
+        map_missing: Dict[str, int] = {}
         curs.execute(q2, [self.set_name])
         for row in curs.fetchall():
             lst_missing.append(row[0])
@@ -697,8 +710,10 @@ class LondisteSetup(CascadeAdmin):
             self.log.info("what to do ?")
         return res
 
-    def solve_globbing(self, args, full_list, full_map, reverse_map, allow_nonexist):
-        def glob2regex(s):
+    def solve_globbing(self, args: Sequence[str], full_list: Sequence[str],
+                       full_map: Dict[str, int], reverse_map: Dict[str, int],
+                       allow_nonexist: bool) -> List[str]:
+        def glob2regex(s: str) -> str:
             s = s.replace('.', '[.]').replace('?', '.').replace('*', '.*')
             return '^%s$' % s
 
@@ -738,7 +753,7 @@ class LondisteSetup(CascadeAdmin):
             raise skytools.UsageError("Cannot proceed")
         return res_list
 
-    def load_extra_status(self, curs, node):
+    def load_extra_status(self, curs: Cursor, node: NodeInfo) -> None:
         """Fetch extra info."""
         # must be thread-safe (!)
         super().load_extra_status(curs, node)
@@ -753,13 +768,13 @@ class LondisteSetup(CascadeAdmin):
                 n_half += 1
         node.add_info_line('Tables: %d/%d/%d' % (n_ok, n_half, n_ign))
 
-    def cmd_wait_sync(self):
+    def cmd_wait_sync(self) -> None:
         self.load_local_info()
 
         dst_db = self.get_database('db')
         self.wait_for_sync(dst_db)
 
-    def wait_for_sync(self, dst_db):
+    def wait_for_sync(self, dst_db: Connection) -> None:
         self.log.info("Waiting until all tables are in sync")
         q = "select table_name, merge_state, local"\
             " from londiste.get_table_list(%s) where local"
@@ -804,7 +819,7 @@ class LondisteSetup(CascadeAdmin):
 
         self.log.info("All done")
 
-    def resurrect_dump_event(self, ev, stats, batch_info):
+    def resurrect_dump_event(self, ev: DictRow, stats: Dict[str, Any], batch_info: DictRow) -> None:
         """Collect per-table stats."""
 
         super().resurrect_dump_event(ev, stats, batch_info)
@@ -812,17 +827,17 @@ class LondisteSetup(CascadeAdmin):
         ROLLBACK = 'can rollback'
         NO_ROLLBACK = 'cannot rollback'
 
-        if ev.ev_type == 'TRUNCATE':
+        if ev['ev_type'] == 'TRUNCATE':
             if 'truncated_tables' not in stats:
                 stats['truncated_tables'] = []
             tlist = stats['truncated_tables']
-            tbl = ev.ev_extra1
+            tbl = ev['ev_extra1']
             if tbl not in tlist:
                 tlist.append(tbl)
-        elif ev.ev_type[:2] in ('I:', 'U:', 'D:', 'I', 'U', 'D'):
-            op = ev.ev_type[0]
-            tbl = ev.ev_extra1
-            bak = ev.ev_extra3
+        elif ev['ev_type'][:2] in ('I:', 'U:', 'D:', 'I', 'U', 'D'):
+            op = ev['ev_type'][0]
+            tbl = ev['ev_extra1']
+            bak = ev['ev_extra3']
             tblkey = 'table: %s' % tbl
             if tblkey not in stats:
                 stats[tblkey] = [0, 0, 0, ROLLBACK]
@@ -835,6 +850,6 @@ class LondisteSetup(CascadeAdmin):
                     tinfo[3] = NO_ROLLBACK
             elif op == 'D':
                 tinfo[2] += 1
-                if not bak and ev.ev_type == 'D':
+                if not bak and ev['ev_type'] == 'D':
                     tinfo[3] = NO_ROLLBACK
 

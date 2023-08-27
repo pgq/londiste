@@ -1,6 +1,8 @@
 """Londiste launcher.
 """
 
+from typing import Sequence, Optional
+
 import optparse
 import sys
 
@@ -60,7 +62,7 @@ class Londiste(skytools.DBScript):
 
     script: skytools.DBScript
 
-    def __init__(self, args):
+    def __init__(self, args: Sequence[str]) -> None:
         self.full_args = args
 
         super().__init__('londiste', args)
@@ -79,14 +81,14 @@ class Londiste(skytools.DBScript):
             sys.exit(1)
         self.script = script
 
-    def start(self):
+    def start(self) -> None:
         self.script.start()
 
-    def print_ini(self):
+    def print_ini(self) -> None:
         """Let the Replicator print the default config."""
         Replicator(self.full_args)
 
-    def init_optparse(self, parser=None):
+    def init_optparse(self, parser: Optional[optparse.OptionParser] = None) -> optparse.OptionParser:
         p = super().init_optparse(parser)
         p.set_usage(command_usage.strip())
 
@@ -178,7 +180,7 @@ class Londiste(skytools.DBScript):
         return p
 
 
-def main():
+def main() -> None:
     script = Londiste(sys.argv[1:])
     script.start()
 

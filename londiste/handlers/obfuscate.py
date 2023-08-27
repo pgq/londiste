@@ -15,9 +15,9 @@ import json
 import uuid
 from hashlib import blake2s
 
-from typing import Dict, Any, Sequence, Tuple
+from typing import Dict, Any, Sequence, Tuple, Optional, List, cast
 
-from skytools.basetypes import Cursor
+from skytools.basetypes import Cursor, DictRow
 import skytools
 import yaml
 
@@ -38,8 +38,10 @@ HASH64 = 'hash64'
 HASH128 = 'hash'
 SKIP = 'skip'
 
+RuleDict = Dict[str, Any]
 
-def as_bytes(data):
+
+def as_bytes(data: Any) -> bytes:
     """Convert input string or json value into bytes.
     """
     if isinstance(data, str):
@@ -57,7 +59,7 @@ def as_bytes(data):
     raise ValueError('Invalid input type for hashing: %s' % type(data))
 
 
-def hash32(data):
+def hash32(data: Any) -> Optional[int]:
     """Returns hash as 32-bit signed int.
     """
     if data is None:
@@ -66,7 +68,7 @@ def hash32(data):
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 
-def hash64(data):
+def hash64(data: Any) -> Optional[int]:
     """Returns hash as 64-bit signed int.
     """
     if data is None:
@@ -75,7 +77,7 @@ def hash64(data):
     return int.from_bytes(hash_bytes, byteorder='big', signed=True)
 
 
-def hash128(data):
+def hash128(data: Any) -> Optional[str]:
     """Returns hash as 128-bit variant 0 uuid.
     """
     if data is None:
@@ -91,7 +93,7 @@ def hash128(data):
     return str(uuid.UUID(int=hash_int))
 
 
-def data_to_dict(data, column_list):
+def data_to_dict(data: str, column_list: Sequence[str]) -> Dict[str, Any]:
     """Convert data received from copy to dict
     """
     if data[-1] == '\n':
@@ -102,7 +104,7 @@ def data_to_dict(data, column_list):
     return row
 
 
-def obf_vals_to_data(obf_vals):
+def obf_vals_to_data(obf_vals: Sequence[Optional[str]]) -> str:
     """Converts obfuscated values back to copy data
     """
     vals = [skytools.quote_copy(value) for value in obf_vals]
@@ -110,7 +112,7 @@ def obf_vals_to_data(obf_vals):
     return obf_data
 
 
-def obf_json(json_data, rule_data):
+def obf_json(json_data: Any, rule_data: RuleDict) -> Any:
     """JSON cleanup.
 
     >>> obf_json({'a': 1, 'b': 2, 'c': 3}, {'a': 'keep', 'b': 'hash'})
@@ -155,24 +157,24 @@ class Obfuscator(TableHandler):
     """Default Londiste handler, inserts events into tables with plain SQL.
     """
     handler_name = 'obfuscate'
-    obf_map: Dict[str, Any] = {}
+    obf_map: Dict[str, RuleDict] = {}
 
     @classmethod
-    def load_conf(cls, cf):
+    def load_conf(cls, cf: skytools.Config) -> None:
         global _KEY
 
         _KEY = as_bytes(cf.get('obfuscator_key', ''))
         with open(cf.getfile('obfuscator_map'), 'r', encoding="utf8") as f:
             cls.obf_map = yaml.safe_load(f)
 
-    def _get_map(self, src_tablename, row=None):
+    def _get_map(self, src_tablename: str, row: Optional[Dict[str, Any]] = None) -> RuleDict:
         """Can be over ridden in inherited classes to implemnt data driven maps
         """
         if src_tablename not in self.obf_map:
             raise KeyError('Source table not in obf_map: %s' % src_tablename)
         return self.obf_map[src_tablename]
 
-    def parse_row_data(self, ev):
+    def parse_row_data(self, ev: Event) -> Dict[str, Any]:
         """Extract row data from event, with optional encoding fixes.
 
         Returns either string (sql event) or dict (urlenc event).
@@ -180,7 +182,7 @@ class Obfuscator(TableHandler):
         row = super().parse_row_data(ev)
 
         rule_data = self._get_map(self.table_name, row)
-        dst = {}
+        dst: Dict[str, Any] = {}
         for field, value in row.items():
             action = rule_data.get(field, SKIP)
             if isinstance(action, dict):
@@ -204,7 +206,7 @@ class Obfuscator(TableHandler):
                 raise ValueError('Invalid value for action: %r' % action)
         return dst
 
-    def obf_json(self, value, rule_data):
+    def obf_json(self, value: Any, rule_data: RuleDict) -> Optional[str]:
         """Recursive obfuscate for json
         """
         if value is None:
@@ -215,13 +217,13 @@ class Obfuscator(TableHandler):
             obf_data = {}
         return json.dumps(obf_data)
 
-    def obf_copy_row(self, data, column_list, src_tablename):
+    def obf_copy_row(self, data: str, column_list: Sequence[str], src_tablename: str) -> str:
         """Apply obfuscation to one row
         """
         row = data_to_dict(data, column_list)
         obf_col_map = self._get_map(src_tablename, row)
 
-        obf_vals = []
+        obf_vals: List[Optional[str]] = []
         for field, value in row.items():
             action = obf_col_map.get(field, SKIP)
 
@@ -255,7 +257,7 @@ class Obfuscator(TableHandler):
         obf_data = obf_vals_to_data(obf_vals)
         return obf_data
 
-    def real_copy(self, src_tablename, src_curs, dst_curs, column_list):
+    def real_copy(self, src_tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: Sequence[str]) -> Tuple[int, int]:
         """Initial copy
         """
         obf_col_map = self._get_map(src_tablename)
@@ -267,7 +269,7 @@ class Obfuscator(TableHandler):
                 new_list.append(col)
         column_list = new_list
 
-        def _write_hook(_, data):
+        def _write_hook(pipe: Any, data: str) -> str:
             return self.obf_copy_row(data, column_list, src_tablename)
 
         condition = self.get_copy_condition(src_curs, dst_curs)
@@ -300,7 +302,7 @@ class Obfuscator(TableHandler):
                 new_list.append(col)
         column_list = new_list
 
-        def _write_hook(_, data):
+        def _write_hook(pipe: Any, data: str) -> str:
             return self.obf_copy_row(data, column_list, src_real_table)
 
         return londiste.util.full_copy_parallel(
@@ -313,19 +315,20 @@ class Obfuscator(TableHandler):
             parallel=parallel,
         )
 
-    def get_copy_event(self, ev, queue_name):
+    def get_copy_event(self, ev: Event, queue_name: str) -> Optional[Event]:
         row = self.parse_row_data(ev)
 
+        ev_data: str
         if len(ev.type) == 1:
-            ev_data = row
+            raise ValueError("sql trigger not supported")
         elif ev.data[0] == '{':
             ev_data = skytools.json_encode(row)
         else:
             ev_data = skytools.db_urlencode(row)
 
-        ev_row = ev._event_row.copy()
+        ev_row = dict(ev._event_row.items())
         ev_row['ev_data'] = ev_data
-        return Event(queue_name, ev_row)
+        return Event(queue_name, cast(DictRow, ev_row))
 
 
 __londiste_handlers__ = [Obfuscator]

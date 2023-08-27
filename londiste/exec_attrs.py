@@ -87,69 +87,72 @@ alter table other."Bar";
 alter table "Other"."Foo";
 """
 
+from typing import Dict, List, Optional
+
 import skytools
+from skytools.basetypes import Cursor
 
 META_PREFIX = "--*--"
 
 
 class Matcher:
-    nice_name = ''
-    def match(self, objname, curs, tables, seqs):
-        pass
-    def get_key(self):
+    nice_name: str = ''
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
+        return False
+    def get_key(self) -> str:
         return self.nice_name.lower()
-    def local_rename(self):
+    def local_rename(self) -> bool:
         return False
 
 
 class LocalTable(Matcher):
-    nice_name = "Local-Table"
-    def match(self, objname, curs, tables, seqs):
+    nice_name: str = "Local-Table"
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return objname in tables
-    def local_rename(self):
+    def local_rename(self) -> bool:
         return True
 
 
 class LocalSequence(Matcher):
     nice_name = "Local-Sequence"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return objname in seqs
-    def local_rename(self):
+    def local_rename(self) -> bool:
         return True
 
 
 class LocalDestination(Matcher):
     nice_name = "Local-Destination"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         if objname not in tables:
             return False
         dest_name = tables[objname]
         return skytools.exists_table(curs, dest_name)
-    def local_rename(self):
+    def local_rename(self) -> bool:
         return True
 
 
 class NeedTable(Matcher):
     nice_name = "Need-Table"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return skytools.exists_table(curs, objname)
 
 
 class NeedSequence(Matcher):
     nice_name = "Need-Sequence"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return skytools.exists_sequence(curs, objname)
 
 
 class NeedSchema(Matcher):
     nice_name = "Need-Schema"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return skytools.exists_schema(curs, objname)
 
 
 class NeedFunction(Matcher):
     nice_name = "Need-Function"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         nargs = 0
         pos1 = objname.find('(')
         if pos1 > 0:
@@ -163,7 +166,7 @@ class NeedFunction(Matcher):
 
 class NeedView(Matcher):
     nice_name = "Need-View"
-    def match(self, objname, curs, tables, seqs):
+    def match(self, objname: str, curs: Cursor,  tables: Dict[str, str],  seqs: Dict[str, str]) -> bool:
         return skytools.exists_view(curs, objname)
 
 
@@ -186,7 +189,9 @@ class ExecAttrsException(skytools.UsageError):
 
 class ExecAttrs:
     """Container and parser for EXECUTE attributes."""
-    def __init__(self, sql=None, urlenc=None):
+    attrs: Dict[str, List[str]]
+
+    def __init__(self, sql: Optional[str] = None, urlenc: Optional[str] = None) -> None:
         """Create container and parse either sql or urlenc string."""
 
         self.attrs = {}
@@ -197,7 +202,7 @@ class ExecAttrs:
         elif sql:
             self.parse_sql(sql)
 
-    def add_value(self, k, v):
+    def add_value(self, k: str, v: str) -> None:
         """Add single value to key."""
 
         xk = k.lower().strip()
@@ -209,21 +214,22 @@ class ExecAttrs:
         xv = v.strip()
         self.attrs[xk].append(xv)
 
-    def to_urlenc(self):
+    def to_urlenc(self) -> str:
         """Convert container to urlencoded string."""
         sdict = {}
         for k, v in self.attrs.items():
             sdict[k] = ','.join(v)
         return skytools.db_urlencode(sdict)
 
-    def parse_urlenc(self, ustr):
+    def parse_urlenc(self, ustr: str) -> None:
         """Parse urlencoded string adding values to current container."""
         sdict = skytools.db_urldecode(ustr)
         for k, v in sdict.items():
-            for v1 in v.split(','):
-                self.add_value(k, v1)
+            if v:
+                for v1 in v.split(','):
+                    self.add_value(k, v1)
 
-    def to_sql(self):
+    def to_sql(self) -> str:
         """Convert container to SQL meta-comments."""
         lines = []
         for m in META_MATCHERS:
@@ -247,10 +253,10 @@ class ExecAttrs:
             lines.append(ln)
         return '\n'.join(lines)
 
-    def parse_sql(self, sql):
+    def parse_sql(self, sql: str) -> None:
         """Parse SQL meta-comments."""
 
-        cur_key = None
+        cur_key: Optional[str] = None
         cur_continued = False
         for ln in sql.splitlines():
 
@@ -277,9 +283,8 @@ class ExecAttrs:
                 # collect values
                 for v in ln.split(','):
                     v = v.strip()
-                    if not v:
-                        continue
-                    self.add_value(cur_key, v)
+                    if v and cur_key:
+                        self.add_value(cur_key, v)
 
                 # does this key continue?
                 if ln[-1] != ',':
@@ -310,7 +315,7 @@ class ExecAttrs:
                 cur_key = None
                 cur_continued = False
 
-    def need_execute(self, curs, local_tables, local_seqs):
+    def need_execute(self, curs: Cursor, local_tables: Dict[str, str], local_seqs: Dict[str, str]) -> bool:
         # if no attrs, always execute
         if not self.attrs:
             return True
@@ -342,7 +347,7 @@ class ExecAttrs:
         else:
             raise Exception("SQL only partially matches local setup: matches=%r misses=%r" % (good_list, miss_list))
 
-    def get_attr(self, k):
+    def get_attr(self, k: str) -> List[str]:
         k = k.lower().strip()
         if k not in META_KEYS:
             raise Exception("Bug: invalid key requested: " + k)
@@ -350,7 +355,7 @@ class ExecAttrs:
             return []
         return self.attrs[k]
 
-    def process_sql(self, sql, local_tables, local_seqs):
+    def process_sql(self, sql: str, local_tables: Dict[str, str], local_seqs: Dict[str, str]) -> str:
         """Replace replacement tags in sql with actual local names."""
         for k, vlist in self.attrs.items():
             m = META_KEYS[k]

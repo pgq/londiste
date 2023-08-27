@@ -6,10 +6,7 @@ from typing import Optional, Tuple, Union, Sequence, List, Any, Callable, TYPE_C
 import io
 
 import skytools
-from skytools.config import read_versioned_config
 from skytools.basetypes import Cursor
-
-import londiste.handler
 
 if TYPE_CHECKING:
     import multiprocessing.connection
@@ -20,15 +17,16 @@ else:
 __all__ = ['handler_allows_copy', 'find_copy_source']
 
 WriteHook = Optional[Callable[[Any, str], str]]
-FlushHook = Optional[Callable[[Any, str], str]]
+FlushHook = Optional[Callable[[Any], None]]
 
 
 def handler_allows_copy(table_attrs: Optional[str]) -> bool:
     """Decide if table is copyable based on attrs."""
+    import londiste.handler
     if not table_attrs:
         return True
     attrs = skytools.db_urldecode(table_attrs)
-    hstr = attrs.get('handler', '')
+    hstr = attrs.get('handler') or ''
     p = londiste.handler.build_handler('unused.string', hstr, None)
     return p.needs_table()
 
@@ -107,14 +105,18 @@ COPY_MERGE_BUF = 256 * 1024
 class MPipeReader(io.RawIOBase):
     """Read from pipe
     """
-    def __init__(self, p_recv):
+    p_recv: "multiprocessing.connection.Connection"
+    buf: Union[memoryview, bytes]
+    blocks: List[bytes]
+
+    def __init__(self, p_recv: "multiprocessing.connection.Connection") -> None:
         super().__init__()
 
         self.p_recv = p_recv
         self.buf = b""
         self.blocks = []
 
-    def readable(self):
+    def readable(self) -> bool:
         return True
 
     def read(self, size: int = -1) -> bytes:
@@ -123,6 +125,7 @@ class MPipeReader(io.RawIOBase):
             size = 1 << 30
 
         # fetch current block of data
+        data: Union[bytes, memoryview]
         if self.buf:
             data = self.buf
             self.buf = b""
@@ -155,8 +158,9 @@ def copy_worker_proc(
     """Launched in separate process.
     """
     if config_file and config_section:
-        cf = read_versioned_config([config_file], config_section)
-        londiste.handler.load_handler_modules(cf)
+        from londiste.handlers import load_handler_modules
+        cf = skytools.Config(config_section, config_file)
+        load_handler_modules(cf)
 
     preader = MPipeReader(p_recv)
     with skytools.connect_database(dst_db_connstr) as dst_db:
@@ -273,10 +277,10 @@ def full_copy_parallel(
     dst_column_list: Optional[Sequence[str]] = None,
     config_file: Optional[str] = None,
     config_section: Optional[str] = None,
-    write_hook=None,
-    flush_hook=None,
-    parallel=1,
-):
+    write_hook: WriteHook = None,
+    flush_hook: FlushHook = None,
+    parallel: int = 1,
+) -> Tuple[int, int]:
     """COPY table from one db to another."""
 
     # default dst table and dst columns to source ones
@@ -285,13 +289,13 @@ def full_copy_parallel(
     if len(dst_column_list) != len(column_list):
         raise Exception('src and dst column lists must match in length')
 
-    def build_qfields(cols):
+    def build_qfields(cols: Optional[Sequence[str]]) -> str:
         if cols:
             return ",".join([skytools.quote_ident(f) for f in cols])
         else:
             return "*"
 
-    def build_statement(table, cols):
+    def build_statement(table: str, cols: Optional[Sequence[str]]) -> str:
         qtable = skytools.quote_fqident(table)
         if cols:
             qfields = build_qfields(cols)

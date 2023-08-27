@@ -3,15 +3,18 @@
 For internal usage.
 """
 
+from typing import Sequence, Optional
+
 import sys
 import time
 
 import skytools
+from skytools.basetypes import Cursor, Connection
 from skytools.dbstruct import (
     T_CONSTRAINT, T_INDEX, T_PARENT, T_RULE, TableStruct,
 )
 
-from londiste.playback import TABLE_CATCHING_UP, TABLE_OK, Replicator
+from londiste.playback import TABLE_CATCHING_UP, TABLE_OK, Replicator, TableState
 from londiste.util import find_copy_source
 
 __all__ = ['CopyTable']
@@ -22,7 +25,10 @@ class CopyTable(Replicator):
 
     reg_ok = False
 
-    def __init__(self, args, copy_thread=1):
+    old_consumer_name: str
+    copy_table_name: str
+
+    def __init__(self, args: Sequence[str], copy_thread: bool = True) -> None:
         """Initializer.  copy_thread arg shows if the copy process is separate
         from main Playback thread or not.  copy_thread=0 means copying happens
         in same process.
@@ -40,15 +46,16 @@ class CopyTable(Replicator):
 
         sfx = self.get_copy_suffix(self.copy_table_name)
         self.old_consumer_name = self.consumer_name
-        self.pidfile += sfx
+        if self.pidfile:
+            self.pidfile += sfx
         self.consumer_name += sfx
-        self.copy_thread = 1
+        self.copy_thread = True
         self.main_worker = False
 
-    def get_copy_suffix(self, tblname):
+    def get_copy_suffix(self, tblname: str) -> str:
         return ".copy.%s" % tblname
 
-    def reload_table_stat(self, dst_curs, tblname):
+    def reload_table_stat(self, dst_curs: Cursor, tblname: str) -> TableState:
         self.load_table_state(dst_curs)
         if tblname not in self.table_map:
             self.log.warning('Table %s removed from replication', tblname)
@@ -56,7 +63,7 @@ class CopyTable(Replicator):
         t = self.table_map[tblname]
         return t
 
-    def do_copy(self, tbl_stat, src_db, dst_db):
+    def do_copy(self, tbl_stat: TableState, src_db: Connection, dst_db: Connection) -> None:
         """Entry point into copying logic."""
 
         dst_db.commit()
@@ -154,7 +161,7 @@ class CopyTable(Replicator):
                 dst_curs.execute(q)
 
             if cmode == 2 and tbl_stat.dropped_ddl is None:
-                ddl = dst_struct.get_create_sql(objs)
+                ddl: Optional[str] = dst_struct.get_create_sql(objs)
                 if ddl:
                     q = "select * from londiste.local_set_table_struct(%s, %s, %s)"
                     self.exec_cmd(dst_curs, q, [self.queue_name, tbl_stat.name, ddl])
@@ -171,9 +178,12 @@ class CopyTable(Replicator):
         # do copy
         p = tbl_stat.get_plugin()
         if use_threads:
+            assert threaded_copy_pool_size
             self.log.info("%s: start threaded copy", tbl_stat.name)
             dst_db_connstr = self.db_cache["db"].loc
             dst_db.commit()
+            assert self.cf.filename
+            assert self.cf.main_section
             stats = p.real_copy_threaded(
                 src_real_table, src_curs, dst_db_connstr, common_cols,
                 config_file=self.cf.filename,
@@ -241,14 +251,14 @@ class CopyTable(Replicator):
         src_curs.execute(q, [self.queue_name])
         src_db.commit()
 
-    def work(self):
+    def work(self) -> Optional[int]:
         if not self.reg_ok:
             # check if needed? (table, not existing reg)
             self.register_copy_consumer()
             self.reg_ok = True
         return super().work()
 
-    def register_copy_consumer(self):
+    def register_copy_consumer(self) -> None:
         dst_db = self.get_database('db')
         dst_curs = dst_db.cursor()
 

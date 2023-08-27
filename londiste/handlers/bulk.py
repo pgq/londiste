@@ -22,10 +22,13 @@ Default is 0.
 
 """
 
+from typing import List, Optional, Dict, Any, Tuple
+
 import skytools
 from skytools import quote_fqident, quote_ident
 
-from londiste.handler import BaseHandler
+from pgq import Event
+from londiste.handler import BaseHandler, BatchInfo, ApplyFunc, Cursor
 
 __all__ = ['BulkLoader']
 
@@ -46,7 +49,7 @@ class BulkEvent:
     """Helper class for BulkLoader to store relevant data."""
     __slots__ = ('op', 'data', 'pk_data')
 
-    def __init__(self, op, data, pk_data):
+    def __init__(self, op: str, data: Dict[str, Any], pk_data: Tuple[str, ...]) -> None:
         self.op = op
         self.data = data
         self.pk_data = pk_data
@@ -70,7 +73,13 @@ class BulkLoader(BaseHandler):
     handler_name = 'bulk'
     fake_seq = 0
 
-    def __init__(self, table_name, args, dest_table):
+    pkey_list: Optional[List[str]]
+    dist_fields: Optional[List[str]]
+    col_list: Optional[List[str]]
+    pkey_ev_map: Dict[Tuple[str, ...], List[BulkEvent]]
+    method: int
+
+    def __init__(self, table_name: str, args: Dict[str, str], dest_table: str) -> None:
         """Init per-batch table data cache."""
 
         super().__init__(table_name, args, dest_table)
@@ -86,14 +95,14 @@ class BulkLoader(BaseHandler):
 
         self.log.debug('bulk_init(%r), method=%d', args, self.method)
 
-    def reset(self):
+    def reset(self) -> None:
         self.pkey_ev_map = {}
         super().reset()
 
-    def finish_batch(self, batch_info, dst_curs):
+    def finish_batch(self, batch_info: BatchInfo, dst_curs: Cursor) -> None:
         self.bulk_flush(dst_curs)
 
-    def process_event(self, ev, sql_queue_func, arg):
+    def process_event(self, ev: Event, sql_queue_func: ApplyFunc, arg: Cursor) -> None:
         if len(ev.ev_type) < 2 or ev.ev_type[1] != ':':
             raise Exception('Unsupported event type: %s/extra1=%s/data=%s' % (
                             ev.ev_type, ev.ev_extra1, ev.ev_data))
@@ -107,30 +116,33 @@ class BulkLoader(BaseHandler):
         if self.pkey_list is None:
             #self.pkey_list = pkey_list
             self.pkey_list = ev.ev_type[2:].split(',')
+
+        pk_data: Tuple[str, ...]
         if len(self.pkey_list) > 0:
-            pk_data = tuple(data[k] for k in self.pkey_list)
+            pk_data = tuple(data[k] or '' for k in self.pkey_list)
         elif op == 'I':
             # fake pkey, just to get them spread out
-            pk_data = self.fake_seq
+            pk_data = (str(self.fake_seq),)
             self.fake_seq += 1
         else:
             raise Exception('non-pk tables not supported: %s' % self.table_name)
 
         # get full column list, detect added columns
+        data_keys = list(data.keys())
         if not self.col_list:
-            self.col_list = data.keys()
-        elif self.col_list != data.keys():
+            self.col_list = data_keys
+        elif self.col_list != data_keys:
             # ^ supposedly python guarantees same order in keys()
-            self.col_list = data.keys()
+            self.col_list = data_keys
 
         # keep all versions of row data
-        ev = BulkEvent(op, data, pk_data)
-        if ev.pk_data in self.pkey_ev_map:
-            self.pkey_ev_map[ev.pk_data].append(ev)
+        bev = BulkEvent(op, data, pk_data)
+        if bev.pk_data in self.pkey_ev_map:
+            self.pkey_ev_map[bev.pk_data].append(bev)
         else:
-            self.pkey_ev_map[ev.pk_data] = [ev]
+            self.pkey_ev_map[bev.pk_data] = [bev]
 
-    def prepare_data(self):
+    def prepare_data(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Got all data, prepare for insertion."""
 
         del_list = []
@@ -174,10 +186,12 @@ class BulkLoader(BaseHandler):
 
         return ins_list, upd_list, del_list
 
-    def bulk_flush(self, curs):
+    def bulk_flush(self, curs: Cursor) -> None:
         ins_list, upd_list, del_list = self.prepare_data()
 
         # reorder cols, put pks first
+        assert self.pkey_list
+        assert self.col_list
         col_list = self.pkey_list[:]
         for k in self.col_list:
             if k not in self.pkey_list:
@@ -248,7 +262,7 @@ class BulkLoader(BaseHandler):
             curs.execute(q)
             # copy rows
             self.log.debug("bulk: COPY %d rows into %s", len(del_list), temp)
-            skytools.magic_insert(curs, qtemp, del_list, col_list, quoted_table=1)
+            skytools.magic_insert(curs, qtemp, del_list, col_list, quoted_table=True)
             # delete rows
             self.log.debug('bulk: %s', del_sql)
             curs.execute(del_sql)
@@ -267,7 +281,7 @@ class BulkLoader(BaseHandler):
             curs.execute(q)
             # copy rows
             self.log.debug("bulk: COPY %d rows into %s", len(upd_list), temp)
-            skytools.magic_insert(curs, qtemp, upd_list, col_list, quoted_table=1)
+            skytools.magic_insert(curs, qtemp, upd_list, col_list, quoted_table=True)
             temp_used = True
             if self.method == METH_CORRECT:
                 # update main table
@@ -291,7 +305,7 @@ class BulkLoader(BaseHandler):
                 if AVOID_BIZGRES_BUG:
                     # copy again, into main table
                     self.log.debug("bulk: COPY %d rows into %s", len(upd_list), tbl)
-                    skytools.magic_insert(curs, qtbl, upd_list, col_list, quoted_table=1)
+                    skytools.magic_insert(curs, qtbl, upd_list, col_list, quoted_table=True)
                 else:
                     # better way, but does not work due bizgres bug
                     self.log.debug('bulk: %s', ins_sql)
@@ -302,7 +316,7 @@ class BulkLoader(BaseHandler):
         if len(ins_list) > 0:
             self.log.debug("bulk: Inserting %d rows into %s", len(ins_list), tbl)
             self.log.debug("bulk: COPY %d rows into %s", len(ins_list), tbl)
-            skytools.magic_insert(curs, qtbl, ins_list, col_list, quoted_table=1)
+            skytools.magic_insert(curs, qtbl, ins_list, col_list, quoted_table=True)
 
         # delete remaining rows
         if temp_used:
@@ -316,7 +330,7 @@ class BulkLoader(BaseHandler):
 
         self.reset()
 
-    def create_temp_table(self, curs):
+    def create_temp_table(self, curs: Cursor) -> Tuple[str, str]:
         if USE_REAL_TABLE:
             tempname = self.dest_table + "_loadertmpx"
         else:
@@ -351,7 +365,7 @@ class BulkLoader(BaseHandler):
         curs.execute(q)
         return tempname, quote_ident(tempname)
 
-    def find_dist_fields(self, curs):
+    def find_dist_fields(self, curs: Cursor) -> List[str]:
         if not skytools.exists_table(curs, "pg_catalog.gp_distribution_policy"):
             return []
         schema, name = skytools.fq_name_parts(self.dest_table)

@@ -1,9 +1,11 @@
 """Send all events to a DB function.
 """
 
+from typing import Optional, List, Type
+
 import skytools
 
-from londiste.handler import BaseHandler
+from londiste.handler import BaseHandler, BatchInfo, Cursor, Event, ApplyFunc
 
 __all__ = ['ApplyFuncHandler']
 
@@ -15,16 +17,16 @@ class ApplyFuncHandler(BaseHandler):
       func_name=NAME - database function name
       func_conf=CONF - database function conf
     """
-    handler_name = 'applyfn'
-    cur_tick = None
+    handler_name: str = 'applyfn'
+    cur_tick: Optional[int] = None
 
-    def prepare_batch(self, batch_info, dst_curs):
+    def prepare_batch(self, batch_info: Optional[BatchInfo], dst_curs: Cursor) -> None:
         if batch_info is not None:
             self.cur_tick = batch_info['tick_id']
 
-    def process_event(self, ev, sql_queue_func, qfunc_arg):
+    def process_event(self, ev: Event, sql_queue_func: ApplyFunc, qfunc_arg: Cursor) -> None:
         """Ignore events for this table"""
-        fn = self.args.get('func_name')
+        fn = self.args.get('func_name') or 'undefined'
         fnconf = self.args.get('func_conf', '')
 
         args = [fnconf, self.cur_tick,
@@ -45,5 +47,5 @@ class ApplyFuncHandler(BaseHandler):
 #------------------------------------------------------------------------------
 
 
-__londiste_handlers__ = [ApplyFuncHandler]
+__londiste_handlers__: List[Type[BaseHandler]] = [ApplyFuncHandler]
 

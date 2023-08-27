@@ -25,12 +25,14 @@ Custom parameters from config file
 
 """
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple, Optional, Type
 
 import skytools
 from skytools.basetypes import Cursor
+from pgq.baseconsumer import BatchInfo
+from pgq.event import Event
 
-from londiste.handler import TableHandler
+from londiste.handler import TableHandler, BaseHandler, ApplyFunc
 
 __all__ = ['ShardHandler', 'PartHandler']
 
@@ -41,7 +43,7 @@ _SHARD_MASK = None  # max part nr (atm)
 
 
 class ShardHandler(TableHandler):
-    __doc__ = __doc__
+    __doc__: Optional[str] = __doc__
     handler_name = 'shard'
 
     DEFAULT_HASH_EXPR = "%s(%s)"
@@ -69,53 +71,62 @@ class ShardHandler(TableHandler):
         self.disable_replay = disable_replay in ('true', '1')
 
     @classmethod
-    def load_conf(cls, cf: skytools.Config):
+    def load_conf(cls, cf: skytools.Config) -> None:
         global _SHARD_HASH_FUNC, _SHARD_INFO_SQL
 
         _SHARD_HASH_FUNC = cf.get("shard_hash_func", _SHARD_HASH_FUNC)
         _SHARD_INFO_SQL = cf.get("shard_info_sql", _SHARD_INFO_SQL)
 
-    def add(self, trigger_arg_list):
+    def add(self, trigger_arg_list: List[str]) -> None:
         """Let trigger put hash into extra3"""
         arg = "ev_extra3='hash='||%s" % self.hash_expr
         trigger_arg_list.append(arg)
         super().add(trigger_arg_list)
 
-    def is_local_shard_event(self, ev):
+    def is_local_shard_event(self, ev: Event) -> bool:
+        assert _SHARD_MASK is not None
         if ev.extra3 is None:
             raise ValueError("handlers.shard: extra3 not filled on %s" % (self.table_name,))
         meta = skytools.db_urldecode(ev.extra3)
-        is_local = (int(meta['hash']) & _SHARD_MASK) == _SHARD_NR
+        meta_hash = meta.get('hash')
+        if meta_hash is None:
+            raise ValueError("handlers.shard: extra3 does not have 'hash' key")
+        is_local = (int(meta_hash) & _SHARD_MASK) == _SHARD_NR
         self.log.debug('shard.process_event: meta=%r, shard_nr=%i, mask=%i, is_local=%r',
                        meta, _SHARD_NR, _SHARD_MASK, is_local)
         return is_local
 
-    def prepare_batch(self, batch_info, dst_curs):
+    def prepare_batch(self, batch_info: Optional[BatchInfo], dst_curs: Cursor) -> None:
         """Called on first event for this table in current batch."""
         if _SHARD_MASK is None:
             self.load_shard_info(dst_curs)
         super().prepare_batch(batch_info, dst_curs)
 
-    def process_event(self, ev, sql_queue_func, arg):
+    def process_event(self, ev: Event, sql_queue_func: ApplyFunc, dst_curs: Cursor) -> None:
         """Filter event by hash in extra3, apply only if for local shard."""
         if self.disable_replay:
             return
         if self.is_local_shard_event(ev):
-            super().process_event(ev, sql_queue_func, arg)
+            super().process_event(ev, sql_queue_func, dst_curs)
 
-    def get_copy_condition(self, src_curs, dst_curs):
+    def get_copy_condition(self, src_curs: Cursor, dst_curs: Cursor) -> str:
         """Prepare the where condition for copy and replay filtering"""
         self.load_shard_info(dst_curs)
+        assert _SHARD_MASK is not None
+        assert _SHARD_NR is not None
         expr = "(%s & %d) = %d" % (self.hash_expr, _SHARD_MASK, _SHARD_NR)
         self.log.debug('shard: copy_condition=%r', expr)
         return expr
 
-    def load_shard_info(self, curs):
+    def load_shard_info(self, curs: Cursor) -> None:
         """Load part/slot info from database."""
         global _SHARD_NR, _SHARD_MASK
 
         curs.execute(_SHARD_INFO_SQL)
-        shard_nr, shard_mask, shard_count = curs.fetchone()
+        row = curs.fetchone()
+        shard_nr: Optional[int] = row[0]
+        shard_mask: Optional[int] = row[1]
+        shard_count: Optional[int] = row[2]
 
         if shard_nr is None or shard_mask is None or shard_count is None:
             raise Exception('Error loading shard info')
@@ -127,7 +138,7 @@ class ShardHandler(TableHandler):
         _SHARD_NR = shard_nr
         _SHARD_MASK = shard_mask
 
-    def get_copy_event(self, ev, queue_name):
+    def get_copy_event(self, ev: Event, queue_name: str) -> Optional[Event]:
         if self.is_local_shard_event(ev):
             return ev
         return None
@@ -167,5 +178,5 @@ class PartHandler(ShardHandler):
 
 
 # register handler class
-__londiste_handlers__ = [ShardHandler, PartHandler]
+__londiste_handlers__: List[Type[BaseHandler]] = [ShardHandler, PartHandler]
 

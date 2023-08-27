@@ -3,11 +3,15 @@
 Currently just does count(1) on both sides.
 """
 
+from typing import Dict, List, Optional
+
 import sys
+import optparse
 
 import skytools
+from skytools.basetypes import Cursor, Connection
 
-from londiste.syncer import Syncer
+from londiste.syncer import Syncer, ATable
 
 __all__ = ['Comparator']
 
@@ -16,7 +20,7 @@ class Comparator(Syncer):
     """Simple checker based on Syncer.
     When tables are in sync runs simple SQL query on them.
     """
-    def process_sync(self, t1, t2, src_db, dst_db):
+    def process_sync(self, t1: ATable, t2: ATable, src_db: Connection, dst_db: Connection) -> int:
         """Actual comparison."""
 
         src_tbl = t1.dest_table
@@ -73,7 +77,7 @@ class Comparator(Syncer):
             return 1
         return 0
 
-    def calc_cols(self, src_curs, src_tbl, dst_curs, dst_tbl):
+    def calc_cols(self, src_curs: Cursor, src_tbl: str, dst_curs: Cursor, dst_tbl: str) -> str:
         cols1 = self.load_cols(src_curs, src_tbl)
         cols2 = self.load_cols(dst_curs, dst_tbl)
 
@@ -82,7 +86,7 @@ class Comparator(Syncer):
             qcols.append(skytools.quote_ident(c))
         return "(%s)" % ",".join(qcols)
 
-    def load_cols(self, curs, tbl):
+    def load_cols(self, curs: Cursor, tbl: str) -> List[str]:
         schema, table = skytools.fq_name_parts(tbl)
         q = "select column_name from information_schema.columns"\
             " where table_schema = %s and table_name = %s"
@@ -92,9 +96,9 @@ class Comparator(Syncer):
             cols.append(row[0])
         return cols
 
-    def calc_common(self, cols1, cols2):
+    def calc_common(self, cols1: List[str], cols2: List[str]) -> List[str]:
         common = []
-        map2 = {}
+        map2: Dict[str, int] = {}
         for c in cols2:
             map2[c] = 1
         for c in cols1:
@@ -108,7 +112,7 @@ class Comparator(Syncer):
 
         return common
 
-    def init_optparse(self, p=None):
+    def init_optparse(self, p: Optional[optparse.OptionParser] = None) -> optparse.OptionParser:
         """Initialize cmdline switches."""
         p = super().init_optparse(p)
         p.add_option("--count-only", action="store_true", help="just count rows, do not compare data")

@@ -1,22 +1,32 @@
 """Catch moment when tables are in sync on master and slave.
 """
 
+from typing import Dict, Tuple, List, Optional, Sequence
+
 import sys
 import time
+import optparse
 
 import skytools
+from skytools.basetypes import Cursor, Connection, DictRow
 
-from londiste.handler import build_handler, load_handler_modules
+from londiste.handler import build_handler, BaseHandler
+from londiste.handlers import load_handler_modules
 from londiste.util import find_copy_source
 
 
 class ATable:
-    def __init__(self, row):
+    table_name: str
+    dest_table: str
+    merge_state: str
+    table_attrs: Dict[str, str]
+    plugin: BaseHandler
+    def __init__(self, row: DictRow):
         self.table_name = row['table_name']
         self.dest_table = row['dest_table'] or row['table_name']
         self.merge_state = row['merge_state']
         attrs = row['table_attrs'] or ''
-        self.table_attrs = skytools.db_urldecode(attrs)
+        self.table_attrs = {k: v for k, v in skytools.db_urldecode(attrs).items() if v is not None}
         hstr = self.table_attrs.get('handler', '')
         self.plugin = build_handler(self.table_name, hstr, row['dest_table'])
 
@@ -26,13 +36,13 @@ class Syncer(skytools.DBScript):
 
     bad_tables = 0
 
-    provider_info = None
+    provider_info: Optional[DictRow] = None
 
-    downstream_worker_name = None
+    downstream_worker_name: Optional[str] = None
 
-    old_worker_paused = None
+    old_worker_paused: Optional[bool] = None
 
-    def __init__(self, args):
+    def __init__(self, args: Sequence[str]) -> None:
         """Syncer init."""
         super().__init__('londiste', args)
         self.set_single_loop(1)
@@ -54,20 +64,20 @@ class Syncer(skytools.DBScript):
 
         load_handler_modules(self.cf)
 
-    def set_lock_timeout(self, curs):
+    def set_lock_timeout(self, curs: Cursor) -> None:
         ms = int(1000 * self.lock_timeout)
         if ms > 0:
             q = "SET LOCAL statement_timeout = %d" % ms
             self.log.debug(q)
             curs.execute(q)
 
-    def init_optparse(self, p=None):
+    def init_optparse(self, p: Optional[optparse.OptionParser] = None) -> optparse.OptionParser:
         """Initialize cmdline switches."""
         p = super().init_optparse(p)
         p.add_option("--force", action="store_true", help="ignore lag")
         return p
 
-    def get_provider_info(self, setup_curs):
+    def get_provider_info(self, setup_curs: Cursor) -> DictRow:
         q = "select ret_code, ret_note, node_name, node_type, worker_name"\
             " from pgq_node.get_node_info(%s)"
         res = self.exec_cmd(setup_curs, q, [self.queue_name])
@@ -75,7 +85,7 @@ class Syncer(skytools.DBScript):
         self.log.info('Provider: %s (%s)', pnode['node_name'], pnode['node_type'])
         return pnode
 
-    def check_consumer(self, setup_db, dst_db):
+    def check_consumer(self, setup_db: Connection, dst_db: Connection) -> None:
         """Before locking anything check if consumer is working ok."""
 
         setup_curs = setup_db.cursor()
@@ -99,7 +109,8 @@ class Syncer(skytools.DBScript):
 
             if len(res) == 0:
                 self.log.warning('Consumer completed_tick (%d) to not exists on provider (%s), too big lag?',
-                                 completed_tick, self.provider_info['node_name'])
+                                 completed_tick,
+                                 self.provider_info['node_name'] if self.provider_info else "???")
                 self.sleep(10)
                 continue
 
@@ -115,7 +126,7 @@ class Syncer(skytools.DBScript):
             c += 1
             time.sleep(1)
 
-    def get_tables(self, db):
+    def get_tables(self, db: Connection) -> Tuple[Dict[str, ATable], List[str]]:
         """Load table info.
 
         Returns tuple of (dict(name->ATable), namelist)"""
@@ -127,15 +138,15 @@ class Syncer(skytools.DBScript):
         rows = curs.fetchall()
         db.commit()
 
-        res = {}
-        names = []
+        res: Dict[str, ATable] = {}
+        names: List[str] = []
         for row in rows:
             t = ATable(row)
             res[t.table_name] = t
             names.append(t.table_name)
         return res, names
 
-    def work(self):
+    def work(self) -> Optional[int]:
         """Syncer main function."""
 
         # 'SELECT 1' and COPY must use same snapshot, so change isolation level.
@@ -171,7 +182,7 @@ class Syncer(skytools.DBScript):
         # signal caller about bad tables
         sys.exit(self.bad_tables)
 
-    def process_one_table(self, tbl, t2, dst_db, provider_node, provider_loc):
+    def process_one_table(self, tbl: str, t2: ATable, dst_db: Connection, provider_node: str, provider_loc: str) -> None:
 
         lock_db = self.get_database('lock_db', connstr=provider_loc, profile='remote')
         setup_db = self.get_database('setup_db', autocommit=1, connstr=provider_loc, profile='remote')
@@ -205,7 +216,7 @@ class Syncer(skytools.DBScript):
         self.close_database('lock_db')
         self.close_database('provider_db')
 
-    def force_tick(self, setup_curs, wait=True):
+    def force_tick(self, setup_curs: Cursor, wait: bool=True) -> int:
         q = "select pgq.force_tick(%s)"
         setup_curs.execute(q, [self.queue_name])
         res = setup_curs.fetchone()
@@ -227,7 +238,7 @@ class Syncer(skytools.DBScript):
             #if dur > 10 and not self.options.force:
             #    raise Exception("Ticker seems dead")
 
-    def check_table(self, t1, t2, lock_db, src_db, dst_db, setup_db):
+    def check_table(self, t1: ATable, t2: ATable, lock_db: Connection, src_db: Connection, dst_db: Connection, setup_db: Connection) -> None:
         """Get transaction to same state, then process."""
 
         src_tbl = t1.dest_table
@@ -245,7 +256,7 @@ class Syncer(skytools.DBScript):
 
         # lock table against changes
         try:
-            if self.provider_info['node_type'] == 'root':
+            if self.provider_info and self.provider_info['node_type'] == 'root':
                 self.lock_table_root(lock_db, setup_db, dst_db, src_tbl, dst_tbl)
             else:
                 self.lock_table_branch(lock_db, setup_db, dst_db, src_tbl, dst_tbl)
@@ -259,7 +270,7 @@ class Syncer(skytools.DBScript):
             dst_curs.execute("SELECT 1")
         finally:
             # release lock
-            if self.provider_info['node_type'] == 'root':
+            if self.provider_info and self.provider_info['node_type'] == 'root':
                 self.unlock_table_root(lock_db, setup_db)
             else:
                 self.unlock_table_branch(lock_db, setup_db)
@@ -273,7 +284,7 @@ class Syncer(skytools.DBScript):
         src_db.commit()
         dst_db.commit()
 
-    def lock_table_root(self, lock_db, setup_db, dst_db, src_tbl, dst_tbl):
+    def lock_table_root(self, lock_db: Connection, setup_db: Connection, dst_db: Connection, src_tbl: str, dst_tbl: str) -> None:
 
         setup_curs = setup_db.cursor()
         lock_curs = lock_db.cursor()
@@ -309,13 +320,15 @@ class Syncer(skytools.DBScript):
                 lock_db.rollback()
                 sys.exit(1)
 
-    def unlock_table_root(self, lock_db, setup_db):
+    def unlock_table_root(self, lock_db: Connection, setup_db: Connection) -> None:
         lock_db.commit()
 
-    def lock_table_branch(self, lock_db, setup_db, dst_db, src_tbl, dst_tbl):
+    def lock_table_branch(self, lock_db: Connection, setup_db: Connection, dst_db: Connection, src_tbl: str, dst_tbl: str) -> None:
         setup_curs = setup_db.cursor()
 
         lock_time = time.time()
+
+        assert self.provider_info
         self.old_worker_paused = self.pause_consumer(setup_curs, self.provider_info['worker_name'])
 
         self.log.info('Syncing %s', dst_tbl)
@@ -339,32 +352,33 @@ class Syncer(skytools.DBScript):
                 lock_db.rollback()
                 sys.exit(1)
 
-    def unlock_table_branch(self, lock_db, setup_db):
+    def unlock_table_branch(self, lock_db: Connection, setup_db: Connection) -> None:
         # keep worker paused if it was so before
         if self.old_worker_paused:
             return
+        assert self.provider_info
         setup_curs = setup_db.cursor()
         self.resume_consumer(setup_curs, self.provider_info['worker_name'])
 
-    def process_sync(self, t1, t2, src_db, dst_db):
+    def process_sync(self, t1: ATable, t2: ATable, src_db: Connection, dst_db: Connection) -> int:
         """It gets 2 connections in state where tbl should be in same state.
         """
         raise Exception('process_sync not implemented')
 
-    def get_provider_location(self, dst_db):
+    def get_provider_location(self, dst_db: Connection) -> Tuple[str, str]:
         q = "select * from pgq_node.get_node_info(%s)"
         rows = self.exec_cmd(dst_db, q, [self.queue_name])
         return (rows[0]['provider_node'], rows[0]['provider_location'])
 
-    def pause_consumer(self, curs, cons_name):
+    def pause_consumer(self, curs: Cursor, cons_name: str) -> bool:
         self.log.info("Pausing upstream worker: %s", cons_name)
         return self.set_pause_flag(curs, cons_name, True)
 
-    def resume_consumer(self, curs, cons_name):
+    def resume_consumer(self, curs: Cursor, cons_name: str) -> bool:
         self.log.info("Resuming upstream worker: %s", cons_name)
         return self.set_pause_flag(curs, cons_name, False)
 
-    def set_pause_flag(self, curs, cons_name, flag):
+    def set_pause_flag(self, curs: Cursor, cons_name: str, flag: bool) -> bool:
         q = "select * from pgq_node.get_consumer_state(%s, %s)"
         res = self.exec_cmd(curs, q, [self.queue_name, cons_name])
         oldflag = res[0]['paused']

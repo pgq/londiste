@@ -4,17 +4,22 @@
 Per-table decision how to create trigger, copy data and apply events.
 """
 
-from typing import List, Dict, Any, Sequence, Tuple, Optional, Mapping
+from typing import List, Dict, Any, Sequence, Tuple, Optional, Union, Callable, Type
 
 import json
 import logging
 import sys
 
 import skytools
-from skytools.basetypes import Cursor
+from skytools.basetypes import Cursor, Connection
+from skytools import dbdict
 
-import londiste.handlers
+from pgq import Event
+from pgq.baseconsumer import BatchInfo
+
 import londiste.util
+
+ApplyFunc = Callable[[str, Cursor], None]
 
 
 _ = """
@@ -43,8 +48,9 @@ plain londiste:
 
 """
 
-__all__ = ['RowCache', 'BaseHandler', 'build_handler', 'EncodingValidator',
-           'load_handler_modules', 'create_handler_string']
+__all__ = ['RowCache', 'BaseHandler', 'build_handler',
+           'create_handler_string', 'BatchInfo',
+           'Event', 'Cursor', 'Connection']
 
 
 class RowCache:
@@ -58,7 +64,7 @@ class RowCache:
         self.keys = {}
         self.rows = []
 
-    def add_row(self, d):
+    def add_row(self, d: Dict[str, Any]) -> None:
         row = [None] * len(self.keys)
         for k, v in d.items():
             try:
@@ -67,8 +73,7 @@ class RowCache:
                 i = len(row)
                 self.keys[k] = i
                 row.append(v)
-        row = tuple(row)
-        self.rows.append(row)
+        self.rows.append(tuple(row))
 
     def get_fields(self) -> Sequence[str]:
         row: List[str] = [""] * len(self.keys)
@@ -91,21 +96,22 @@ class BaseHandler:
     dest_table: str
     fq_table_name: str
     fq_dest_table: str
-    args: Mapping[str, str]
+    args: Dict[str, str]
     conf: skytools.dbdict
+    _doc_: str = ''
 
-    def __init__(self, table_name: str, args, dest_table: Optional[str]) -> None:
+    def __init__(self, table_name: str, args: Optional[Dict[str,str]], dest_table: Optional[str]) -> None:
         self.table_name = table_name
         self.dest_table = dest_table or table_name
         self.fq_table_name = skytools.quote_fqident(self.table_name)
         self.fq_dest_table = skytools.quote_fqident(self.dest_table)
-        self.args = args
-        self._check_args(args)
+        self.args = args if args else {}
+        self._check_args(self.args)
         self.conf = self.get_config()
 
-    def _parse_args_from_doc(self):
+    def _parse_args_from_doc(self) -> List[Tuple[str, str, str]]:
         doc = self.__doc__ or ""
-        params_descr = []
+        params_descr: List[Tuple[str, str, str]] = []
         params_found = False
         for line in doc.splitlines():
             ln = line.strip()
@@ -125,7 +131,7 @@ class BaseHandler:
                 params_found = True
         return params_descr
 
-    def _check_args(self, args):
+    def _check_args(self, args: Dict[str, str]) -> None:
         self.valid_arg_names = []
         passed_arg_names = args.keys() if args else []
         args_from_doc = self._parse_args_from_doc()
@@ -135,7 +141,7 @@ class BaseHandler:
         if invalid:
             raise ValueError("Invalid handler argument: %s" % list(invalid))
 
-    def get_arg(self, name, value_list, default=None):
+    def get_arg(self, name: str, value_list: Union[List[str], List[int]], default: Optional[Union[str, int]]=None) -> Union[str, int]:
         """ Return arg value or default; also check if value allowed. """
         default = default or value_list[0]
         val = type(default)(self.args.get(name, default))
@@ -143,44 +149,44 @@ class BaseHandler:
             raise Exception('Bad argument %s value %r' % (name, val))
         return val
 
-    def get_config(self):
+    def get_config(self) -> dbdict:
         """ Process args dict (into handler config). """
         conf = skytools.dbdict()
         return conf
 
-    def add(self, trigger_arg_list):
+    def add(self, trigger_arg_list: List[str]) -> None:
         """Called when table is added.
 
         Can modify trigger args.
         """
         pass
 
-    def reset(self):
+    def reset(self) -> None:
         """Called before starting to process a batch.
         Should clean any pending data.
         """
         pass
 
-    def prepare_batch(self, batch_info, dst_curs):
+    def prepare_batch(self, batch_info: Optional[BatchInfo], dst_curs: Cursor) -> None:
         """Called on first event for this table in current batch."""
         pass
 
-    def process_event(self, ev, sql_queue_func, arg):
+    def process_event(self, ev: Event, sql_queue_func: ApplyFunc, dst_curs: Cursor) -> None:
         """Process a event.
 
         Event should be added to sql_queue or executed directly.
         """
         pass
 
-    def finish_batch(self, batch_info, dst_curs):
+    def finish_batch(self, batch_info: BatchInfo, dst_curs: Cursor) -> None:
         """Called when batch finishes."""
         pass
 
-    def get_copy_condition(self, src_curs, dst_curs):
+    def get_copy_condition(self, src_curs: Cursor, dst_curs: Cursor) -> str:
         """ Use if you want to filter data """
         return ''
 
-    def real_copy(self, src_tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: List[str]):
+    def real_copy(self, src_tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: List[str]) -> Tuple[int, int]:
         """do actual table copy and return tuple with number of bytes and rows
         copied
         """
@@ -213,16 +219,16 @@ class BaseHandler:
             parallel=parallel,
         )
 
-    def needs_table(self):
+    def needs_table(self) -> bool:
         """Does the handler need the table to exist on destination."""
         return True
 
     @classmethod
-    def load_conf(cls, cf):
+    def load_conf(cls, cf: skytools.Config) -> None:
         """Load conf."""
         pass
 
-    def get_copy_event(self, ev, queue_name):
+    def get_copy_event(self, ev: Event, queue_name: str) -> Optional[Event]:
         """Get event copy for destination queue."""
         return ev
 
@@ -245,21 +251,19 @@ class TableHandler(BaseHandler):
 
     allow_sql_event = 1
 
-    def __init__(self, table_name, args, dest_table):
+    def __init__(self, table_name: str, args: Dict[str, str], dest_table: Optional[str]) -> None:
         super().__init__(table_name, args, dest_table)
 
         enc = args.get('encoding')
         if enc:
-            self.encoding_validator = EncodingValidator(self.log, enc)
-        else:
-            self.encoding_validator = None
+            raise ValueError("encoding validator not supported")
 
-    def get_config(self):
+    def get_config(self) -> dbdict:
         conf = super().get_config()
         conf.ignore_truncate = self.get_arg('ignore_truncate', [0, 1], 0)
         return conf
 
-    def process_event(self, ev, sql_queue_func, arg):
+    def process_event(self, ev: Event, sql_queue_func: ApplyFunc, dst_curs: Cursor) -> None:
         row = self.parse_row_data(ev)
         if len(ev.type) == 1:
             # sql event
@@ -283,9 +287,9 @@ class TableHandler(BaseHandler):
             elif op == 'D':
                 sql = skytools.mk_delete_sql(row, tbl, pklist)
 
-        sql_queue_func(sql, arg)
+        sql_queue_func(sql, dst_curs)
 
-    def parse_row_data(self, ev):
+    def parse_row_data(self, ev: Event) -> Dict[str, Any]:
         """Extract row data from event, with optional encoding fixes.
 
         Returns either string (sql event) or dict (urlenc event).
@@ -294,34 +298,23 @@ class TableHandler(BaseHandler):
         if len(ev.type) == 1:
             if not self.allow_sql_event:
                 raise Exception('SQL events not supported by this handler')
-            if self.encoding_validator:
-                return self.encoding_validator.validate_string(ev.data, self.table_name)
             return ev.data
         elif ev.data[0] == '{':
             row = json.loads(ev.data)
-            # FIXME: encoding_validator?
             return row
         else:
             row = skytools.db_urldecode(ev.data)
-            if self.encoding_validator:
-                return self.encoding_validator.validate_dict(row, self.table_name)
             return row
 
-    def real_copy(self, src_tablename, src_curs, dst_curs, column_list):
+    def real_copy(self, src_tablename: str, src_curs: Cursor, dst_curs: Cursor, column_list: List[str]) -> Tuple[int, int]:
         """do actual table copy and return tuple with number of bytes and rows
         copied
         """
 
-        if self.encoding_validator:
-            def _write_hook(obj, data):
-                return self.encoding_validator.validate_copy(data, column_list, src_tablename)
-        else:
-            _write_hook = None
         condition = self.get_copy_condition(src_curs, dst_curs)
         return skytools.full_copy(src_tablename, src_curs, dst_curs,
                                   column_list, condition,
-                                  dst_tablename=self.dest_table,
-                                  write_hook=_write_hook)
+                                  dst_tablename=self.dest_table)
 
     def real_copy_threaded(
         self,
@@ -338,13 +331,6 @@ class TableHandler(BaseHandler):
                 condition = self.get_copy_condition(src_curs, dst_curs)
             dst_db.commit()
 
-        _write_hook: Optional[londiste.util.WriteHook]
-        if self.encoding_validator:
-            def _write_hook(obj, data):
-                return self.encoding_validator.validate_copy(data, column_list, src_real_table)
-        else:
-            _write_hook = None
-
         return londiste.util.full_copy_parallel(
             src_real_table, src_curs,
             dst_db_connstr=dst_db_connstr,
@@ -352,82 +338,20 @@ class TableHandler(BaseHandler):
             condition=condition,
             dst_tablename=self.dest_table,
             parallel=parallel,
-            write_hook=_write_hook,
         )
 
 
-#------------------------------------------------------------------------------
-# ENCODING VALIDATOR
-#------------------------------------------------------------------------------
-
-class EncodingValidator:
-    def __init__(self, log, encoding='utf-8', replacement='\ufffd'):
-        """validates the correctness of given encoding. when data contains
-        illegal symbols, replaces them with <replacement> and logs the
-        incident
-        """
-
-        if encoding.lower() not in ('utf8', 'utf-8'):
-            raise Exception('only utf8 supported')
-
-        self.encoding = encoding
-        self.log = log
-        self.columns = None
-        self.error_count = 0
-
-    def show_error(self, col, val, pfx, unew):
-        if pfx:
-            col = pfx + '.' + col
-        self.log.info('Fixed invalid UTF8 in column <%s>', col)
-        self.log.debug('<%s>: old=%r new=%r', col, val, unew)
-
-    def validate_copy(self, data, columns, pfx=""):
-        """Validate tab-separated fields"""
-
-        ok, _unicode = skytools.safe_utf8_decode(data)
-        if ok:
-            return data
-
-        # log error
-        vals = data.split('\t')
-        for i, v in enumerate(vals):
-            ok, tmp = skytools.safe_utf8_decode(v)
-            if not ok:
-                self.show_error(columns[i], v, pfx, tmp)
-
-        # return safe data
-        return _unicode.encode('utf8')
-
-    def validate_dict(self, data, pfx=""):
-        """validates data in dict"""
-        for k, v in data.items():
-            if v:
-                ok, u = skytools.safe_utf8_decode(v)
-                if not ok:
-                    self.show_error(k, v, pfx, u)
-                    data[k] = u.encode('utf8')
-        return data
-
-    def validate_string(self, value, pfx=""):
-        """validate string"""
-        ok, u = skytools.safe_utf8_decode(value)
-        if ok:
-            return value
-        _pfx = pfx and (pfx + ': ') or ""
-        self.log.info('%sFixed invalid UTF8 in string <%s>', _pfx, value)
-        return u.encode('utf8')
 
 #
 # handler management
 #
 
-
-_handler_map = {
+_handler_map: Dict[str, Type[BaseHandler]] = {
     'londiste': TableHandler,
 }
 
 
-def register_handler_module(modname, cf):
+def register_handler_module(modname: str, cf: skytools.Config) -> None:
     """Import and module and register handlers."""
     try:
         __import__(modname)
@@ -440,7 +364,7 @@ def register_handler_module(modname, cf):
         _handler_map[h.handler_name] = h
 
 
-def _parse_arglist(arglist):
+def _parse_arglist(arglist: Sequence[str]) -> Dict[str, str]:
     args = {}
     for arg in arglist or []:
         key, _, val = arg.partition('=')
@@ -451,7 +375,7 @@ def _parse_arglist(arglist):
     return args
 
 
-def create_handler_string(name, arglist):
+def create_handler_string(name: str, arglist: Sequence[str]) -> str:
     handler = name
     if name.find('(') >= 0:
         raise Exception('invalid handler name: %s' % name)
@@ -462,7 +386,7 @@ def create_handler_string(name, arglist):
     return handler
 
 
-def _parse_handler(hstr):
+def _parse_handler(hstr: str) -> Tuple[str, Dict[str, str]]:
     """Parse result of create_handler_string()."""
     args = {}
     name = hstr
@@ -474,11 +398,15 @@ def _parse_handler(hstr):
         astr = hstr[pos + 1: -1]
         if astr:
             astr = astr.replace(',', '&')
-            args = skytools.db_urldecode(astr)
+            args = {
+                k: v
+                for k, v in skytools.db_urldecode(astr).items()
+                if v is not None
+            }
     return (name, args)
 
 
-def build_handler(tblname, hstr, dest_table=None):
+def build_handler(tblname: str, hstr: str, dest_table: Optional[str] = None) -> BaseHandler:
     """Parse and initialize handler.
 
     hstr is result of create_handler_string()."""
@@ -491,19 +419,19 @@ def build_handler(tblname, hstr, dest_table=None):
     return klass(tblname, args, dest_table)
 
 
-def load_handler_modules(cf):
-    """Load and register modules from config."""
-    lst = londiste.handlers.DEFAULT_HANDLERS
-    lst += cf.getlist('handler_modules', [])
+#def load_handler_modules(cf: skytools.Config) -> None:
+#    """Load and register modules from config."""
+#    from londiste.handlers import DEFAULT_HANDLERS
+#    for m in DEFAULT_HANDLERS:
+#        register_handler_module(m, cf)
+#
+#    for m in cf.getlist('handler_modules', []):
+#        register_handler_module(m, cf)
 
-    for m in lst:
-        register_handler_module(m, cf)
 
-
-def show(mods):
+def show(mods: Sequence[str]) -> None:
     if not mods:
-        for n in _handler_map:
-            kls = _handler_map[n]
+        for n, kls in _handler_map.items():
             desc = kls.__doc__ or ''
             if desc:
                 desc = desc.strip().split('\n', 1)[0]
