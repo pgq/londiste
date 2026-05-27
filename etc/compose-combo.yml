@@ -39,65 +39,14 @@ services:
       mode: global
     command: ["./run.sh"]
 
-  test-pg13:
-    container_name: "test-pg13"
+  test-pg18:
+    container_name: "test-pg18"
     build:
       context: .
       dockerfile: etc/Dockerfile.combo
       args:
-        PG: "13"
-        PY: "3.9"
-    volumes:
-      - type: bind
-        read_only: true
-        source: .
-        target: /repo
-    deploy:
-      mode: global
-    command: ["./run.sh"]
-
-  test-pg12:
-    container_name: "test-pg12"
-    build:
-      context: .
-      dockerfile: etc/Dockerfile.combo
-      args:
-        PG: "12"
-        PY: "3.8"
-    volumes:
-      - type: bind
-        read_only: true
-        source: .
-        target: /repo
-    deploy:
-      mode: global
-    command: ["./run.sh"]
-
-  test-pg11:
-    container_name: "test-pg11"
-    build:
-      context: .
-      dockerfile: etc/Dockerfile.combo
-      args:
-        PG: "11"
-        PY: "3.7"
-    volumes:
-      - type: bind
-        read_only: true
-        source: .
-        target: /repo
-    deploy:
-      mode: global
-    command: ["./run.sh"]
-
-  test-pg10:
-    container_name: "test-pg10"
-    build:
-      context: .
-      dockerfile: etc/Dockerfile.combo
-      args:
-        PG: "10"
-        PY: "3.8"
+        PG: "18"
+        PY: "3.14"
     volumes:
       - type: bind
         read_only: true
