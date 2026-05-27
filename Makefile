@@ -7,7 +7,7 @@ NEWS = NEWS.rst
 all: lint test
 
 test:
-	tox -e py38
+	tox -e py311
 
 lint:
 	tox -q -e lint
@@ -49,18 +49,14 @@ shownote:
 #
 
 pull-python:
+	docker pull python:3.14-slim-bookworm
 	docker pull python:3.11-slim-bookworm
 	docker pull python:3.10-slim-bookworm
-	docker pull python:3.9-slim-bookworm
-	docker pull python:3.8-slim-bookworm
-	docker pull python:3.7-slim-bookworm
 
 pull-postgres:
+	docker pull postgres:18-bookworm
 	docker pull postgres:15-bookworm
 	docker pull postgres:14-bookworm
-	docker pull postgres:13-bookworm
-	docker pull postgres:12-bookworm
-	docker pull postgres:11-bookworm
 
 prune:
 	docker image prune -f
@@ -78,7 +74,13 @@ test-pg15-build:
 test-pg15-shell:
 	$(COMPOSE_COMBO) run --entrypoint bash test-pg15
 
-test-pg10 test-pg11 test-pg12 test-pg13 test-pg14 test-pg15:
+test-pg18-build:
+	$(COMPOSE_COMBO) build test-pg18
+
+test-pg18-shell:
+	$(COMPOSE_COMBO) run --entrypoint bash test-pg18
+
+test-pg14 test-pg15 test-pg18:
 	$(COMPOSE_COMBO) up --build $@
 
 test-all:
