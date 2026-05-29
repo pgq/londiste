@@ -7,7 +7,7 @@ FROM python:${PY}-slim-bookworm
 
 # need to repeat after FROM
 ARG PY=3
-ARG PG=15
+ARG PG=18
 
 # copy to env
 ENV PY=${PY}
