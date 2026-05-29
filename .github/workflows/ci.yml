@@ -2,11 +2,6 @@
 # https://docs.github.com/en/actions/reference
 # https://github.com/actions
 #
-# uses: https://github.com/actions/checkout @v3
-# uses: https://github.com/actions/setup-python @v4
-# uses: https://github.com/actions/download-artifact @v3
-# uses: https://github.com/actions/upload-artifact @v3
-#
 
 name: CI
 
@@ -25,10 +20,10 @@ jobs:
           - {PY: "3.10", TOXENV: "lint"}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: "Setup Python ${{matrix.test.PY}}"
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{matrix.test.PY}}
 
@@ -50,10 +45,10 @@ jobs:
           - {PY: "3.14", PG: "18", TOXENV: "py314"}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: "Setup Python ${{matrix.test.PY}}"
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{matrix.test.PY}}
 
